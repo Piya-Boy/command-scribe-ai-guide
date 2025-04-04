@@ -1,5 +1,6 @@
 
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 import { Terminal } from "lucide-react";
 
@@ -9,19 +10,19 @@ const Navbar = () => {
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2">
           <Terminal className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">CommandScribe</span>
+          <Link to="/" className="text-xl font-bold">CommandScribe</Link>
         </div>
         
         <nav className="hidden md:flex gap-6">
-          <a className="text-sm font-medium hover:underline" href="/">
+          <Link className="text-sm font-medium hover:underline" to="/">
             Home
-          </a>
-          <a className="text-sm font-medium hover:underline" href="/commands">
+          </Link>
+          <Link className="text-sm font-medium hover:underline" to="/commands">
             Commands
-          </a>
-          <a className="text-sm font-medium hover:underline" href="/ai-assistant">
+          </Link>
+          <Link className="text-sm font-medium hover:underline" to="/ai-assistant">
             AI Assistant
-          </a>
+          </Link>
         </nav>
         
         <div className="flex items-center gap-2">
