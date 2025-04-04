@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,13 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Bookmark, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Command } from "@/types/command";
 
-interface CommandProps {
+interface CommandProps extends Omit<Command, 'id' | 'category' | 'created_at' | 'user_id'> {
   id?: string;
-  name: string;
-  description: string;
-  syntax: string;
-  platform: "linux" | "windows" | "both";
   examples?: string[];
 }
 
@@ -44,9 +40,20 @@ const CommandCard = ({ id, name, description, syntax, platform, examples = [] }:
         return;
       }
       
+      if (!id) {
+        toast({
+          title: "Error",
+          description: "Command ID is required to save",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const userId = sessionData.session.user.id;
+      
       const { error } = await supabase
         .from('bookmarks')
-        .insert([{ command_id: id }]);
+        .insert([{ command_id: id, user_id: userId }]);
       
       if (error) {
         if (error.code === '23505') { // Unique violation code

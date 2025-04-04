@@ -7,4 +7,9 @@ export interface Command {
   platform: "linux" | "windows" | "both";
   examples: string[];
   category?: string;
+  created_at?: string;
+  user_id?: string;
 }
+
+// This is a type used for inserting new commands
+export type CommandInsert = Omit<Command, 'id' | 'created_at'>;

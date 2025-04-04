@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -9,7 +8,7 @@ import { Filter, BookmarkPlus, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import NewCommandDialog from "@/components/NewCommandDialog";
-import type { Command } from "@/types/command";
+import { Command, CommandInsert } from "@/types/command";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Commands = () => {
@@ -36,15 +35,23 @@ const Commands = () => {
         
         if (error) throw error;
         
+        if (!data) {
+          setAllCommands([]);
+          setFilteredCommands([]);
+          return;
+        }
+        
         // Transform the commands to match our Command type
-        const transformedCommands = data.map(cmd => ({
+        const transformedCommands: Command[] = data.map(cmd => ({
           id: cmd.id,
           name: cmd.name,
           description: cmd.description,
           syntax: cmd.syntax,
-          platform: cmd.platform,
+          platform: cmd.platform as "linux" | "windows" | "both",
           examples: cmd.examples || [],
-          category: cmd.category || 'uncategorized'
+          category: cmd.category || 'uncategorized',
+          created_at: cmd.created_at,
+          user_id: cmd.user_id
         }));
         
         setAllCommands(transformedCommands);
@@ -117,8 +124,17 @@ const Commands = () => {
     applyFilters(activeCategory, newPlatform);
   };
 
-  const handleAddCommand = async (newCommand: Command) => {
+  const handleAddCommand = async (newCommand: CommandInsert) => {
     try {
+      // Get the session to check if user is logged in
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+      
+      // If no session, set user_id to null so it becomes a public command
+      const user_id = sessionData.session?.user.id;
+      
+      // Insert the new command
       const { error } = await supabase
         .from('commands')
         .insert([{
@@ -127,7 +143,8 @@ const Commands = () => {
           syntax: newCommand.syntax,
           platform: newCommand.platform,
           examples: newCommand.examples,
-          category: newCommand.category || 'uncategorized'
+          category: newCommand.category || 'uncategorized',
+          user_id: user_id
         }]);
       
       if (error) throw error;
@@ -144,14 +161,20 @@ const Commands = () => {
       
       if (fetchError) throw fetchError;
       
-      const transformedCommands = data.map(cmd => ({
+      if (!data) {
+        return;
+      }
+      
+      const transformedCommands: Command[] = data.map(cmd => ({
         id: cmd.id,
         name: cmd.name,
         description: cmd.description,
         syntax: cmd.syntax,
-        platform: cmd.platform,
+        platform: cmd.platform as "linux" | "windows" | "both",
         examples: cmd.examples || [],
-        category: cmd.category || 'uncategorized'
+        category: cmd.category || 'uncategorized',
+        created_at: cmd.created_at,
+        user_id: cmd.user_id
       }));
       
       setAllCommands(transformedCommands);
@@ -258,6 +281,7 @@ const Commands = () => {
                     filteredCommands.map((command) => (
                       <CommandCard
                         key={command.id}
+                        id={command.id}
                         name={command.name}
                         description={command.description}
                         syntax={command.syntax}
