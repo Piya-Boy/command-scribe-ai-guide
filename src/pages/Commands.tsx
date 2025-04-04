@@ -20,8 +20,7 @@ const Commands = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   
-  // Get unique categories from commands
-  const categories = Array.from(new Set(allCommands.map(cmd => cmd.category || "uncategorized")));
+  // Get commands by their platform type since we don't have a category field
   const platforms = ["linux", "windows", "both"];
 
   // Fetch commands from Supabase
@@ -49,9 +48,8 @@ const Commands = () => {
           syntax: cmd.syntax,
           platform: cmd.platform as "linux" | "windows" | "both",
           examples: cmd.examples || [],
-          category: cmd.category || 'uncategorized',
-          created_at: cmd.created_at,
-          user_id: cmd.user_id
+          user_id: cmd.user_id,
+          created_at: cmd.created_at
         }));
         
         setAllCommands(transformedCommands);
@@ -88,9 +86,6 @@ const Commands = () => {
 
     // Apply any active filters to the search results
     let filtered = results;
-    if (activeCategory) {
-      filtered = filtered.filter(cmd => cmd.category === activeCategory);
-    }
     if (activePlatform) {
       filtered = filtered.filter(cmd => cmd.platform === activePlatform);
     }
@@ -101,9 +96,8 @@ const Commands = () => {
   const applyFilters = (category: string | null, platform: string | null) => {
     let filtered = allCommands;
 
-    if (category) {
-      filtered = filtered.filter(cmd => cmd.category === category);
-    }
+    // We're not using category filtering since there's no category field
+    // but keeping the parameter for future expansion
 
     if (platform) {
       filtered = filtered.filter(cmd => cmd.platform === platform);
@@ -112,11 +106,6 @@ const Commands = () => {
     setFilteredCommands(filtered);
     setActiveCategory(category);
     setActivePlatform(platform);
-  };
-
-  const handleCategoryFilter = (category: string) => {
-    const newCategory = activeCategory === category ? null : category;
-    applyFilters(newCategory, activePlatform);
   };
 
   const handlePlatformFilter = (platform: string) => {
@@ -142,9 +131,7 @@ const Commands = () => {
           description: newCommand.description,
           syntax: newCommand.syntax,
           platform: newCommand.platform,
-          examples: newCommand.examples,
-          category: newCommand.category || 'uncategorized',
-          user_id: user_id
+          examples: newCommand.examples
         }]);
       
       if (error) throw error;
@@ -172,9 +159,8 @@ const Commands = () => {
         syntax: cmd.syntax,
         platform: cmd.platform as "linux" | "windows" | "both",
         examples: cmd.examples || [],
-        category: cmd.category || 'uncategorized',
-        created_at: cmd.created_at,
-        user_id: cmd.user_id
+        user_id: cmd.user_id,
+        created_at: cmd.created_at
       }));
       
       setAllCommands(transformedCommands);
@@ -216,23 +202,6 @@ const Commands = () => {
                 </div>
 
                 <div className="mb-6">
-                  <h3 className="text-sm font-medium mb-2">Categories</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map(category => (
-                      <Button
-                        key={category}
-                        variant={activeCategory === category ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleCategoryFilter(category)}
-                        className="capitalize"
-                      >
-                        {category}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
                   <h3 className="text-sm font-medium mb-2">Platform</h3>
                   <div className="flex flex-wrap gap-2">
                     {platforms.map(platform => (
@@ -263,7 +232,6 @@ const Commands = () => {
 
                 <div className="grid gap-6">
                   {isLoading ? (
-                    // Skeleton loading state
                     Array(4).fill(0).map((_, i) => (
                       <div key={i} className="w-full border rounded-lg p-6">
                         <div className="flex justify-between items-start mb-4">

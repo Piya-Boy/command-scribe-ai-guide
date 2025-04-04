@@ -6,7 +6,6 @@ export interface Command {
   syntax: string;
   platform: "linux" | "windows" | "both";
   examples: string[];
-  category?: string;
   created_at?: string;
   user_id?: string;
 }

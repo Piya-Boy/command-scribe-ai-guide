@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Command } from "@/types/command";
 
-interface CommandProps extends Omit<Command, 'id' | 'category' | 'created_at' | 'user_id'> {
+// Make examples optional in the props to match how it's being used
+interface CommandProps {
   id?: string;
+  name: string;
+  description: string;
+  syntax: string;
+  platform: "linux" | "windows" | "both";
   examples?: string[];
 }
 
