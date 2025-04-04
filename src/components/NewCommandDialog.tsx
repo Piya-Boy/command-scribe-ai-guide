@@ -52,7 +52,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit }: NewCommandDialogProp
       syntax,
       platform,
       examples: filteredExamples,
-      category,
+      // Removing the category property as it's not in the Command type
     };
     
     onSubmit(newCommand);
