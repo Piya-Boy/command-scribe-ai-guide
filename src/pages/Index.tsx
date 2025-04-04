@@ -6,6 +6,7 @@ import SearchBar from "@/components/SearchBar";
 import CommandCard from "@/components/CommandCard";
 import { Button } from "@/components/ui/button";
 import { Terminal, Search } from "lucide-react";
+import Bookmark from "@/components/Bookmark";
 import { sampleCommands, Command } from "@/data/sampleCommands";
 
 const Index = () => {
