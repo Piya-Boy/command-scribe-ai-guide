@@ -127,11 +127,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
-        toast({
-          title: `${provider} sign in failed`,
-          description: error.message,
-          variant: "destructive",
-        });
+        // Handle the specific error for provider not enabled
+        if (error.message.includes("provider is not enabled") || error.status === 400) {
+          toast({
+            title: `${provider} sign in not available`,
+            description: `The ${provider} provider needs to be enabled in your Supabase project settings.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: `${provider} sign in failed`,
+            description: error.message,
+            variant: "destructive",
+          });
+        }
         throw error;
       }
     } catch (error) {
