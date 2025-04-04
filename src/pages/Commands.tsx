@@ -1,21 +1,68 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SearchBar from "@/components/SearchBar";
 import CommandCard from "@/components/CommandCard";
 import { Button } from "@/components/ui/button";
-import { Filter, BookmarkPlus } from "lucide-react";
-import { sampleCommands, Command } from "@/data/sampleCommands";
+import { Filter, BookmarkPlus, Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import NewCommandDialog from "@/components/NewCommandDialog";
+import type { Command } from "@/types/command";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Commands = () => {
-  const [filteredCommands, setFilteredCommands] = useState<Command[]>(sampleCommands);
+  const [filteredCommands, setFilteredCommands] = useState<Command[]>([]);
+  const [allCommands, setAllCommands] = useState<Command[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activePlatform, setActivePlatform] = useState<string | null>(null);
-
-  // Get unique categories and platforms for filters
-  const categories = Array.from(new Set(sampleCommands.map(cmd => cmd.category)));
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
+  
+  // Get unique categories from commands
+  const categories = Array.from(new Set(allCommands.map(cmd => cmd.category || "uncategorized")));
   const platforms = ["linux", "windows", "both"];
+
+  // Fetch commands from Supabase
+  useEffect(() => {
+    const fetchCommands = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('commands')
+          .select('*');
+        
+        if (error) throw error;
+        
+        // Transform the commands to match our Command type
+        const transformedCommands = data.map(cmd => ({
+          id: cmd.id,
+          name: cmd.name,
+          description: cmd.description,
+          syntax: cmd.syntax,
+          platform: cmd.platform,
+          examples: cmd.examples || [],
+          category: cmd.category || 'uncategorized'
+        }));
+        
+        setAllCommands(transformedCommands);
+        setFilteredCommands(transformedCommands);
+      } catch (error) {
+        console.error("Error fetching commands:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load commands",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCommands();
+  }, [toast]);
 
   const handleSearch = (query: string) => {
     if (!query.trim()) {
@@ -23,7 +70,7 @@ const Commands = () => {
       return;
     }
 
-    const results = sampleCommands.filter(
+    const results = allCommands.filter(
       command =>
         command.name.toLowerCase().includes(query.toLowerCase()) ||
         command.description.toLowerCase().includes(query.toLowerCase()) ||
@@ -45,7 +92,7 @@ const Commands = () => {
   };
 
   const applyFilters = (category: string | null, platform: string | null) => {
-    let filtered = sampleCommands;
+    let filtered = allCommands;
 
     if (category) {
       filtered = filtered.filter(cmd => cmd.category === category);
@@ -70,13 +117,70 @@ const Commands = () => {
     applyFilters(activeCategory, newPlatform);
   };
 
+  const handleAddCommand = async (newCommand: Command) => {
+    try {
+      const { error } = await supabase
+        .from('commands')
+        .insert([{
+          name: newCommand.name,
+          description: newCommand.description,
+          syntax: newCommand.syntax,
+          platform: newCommand.platform,
+          examples: newCommand.examples,
+          category: newCommand.category || 'uncategorized'
+        }]);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Command Added",
+        description: `${newCommand.name} has been added successfully`,
+      });
+      
+      // Refresh commands
+      const { data, error: fetchError } = await supabase
+        .from('commands')
+        .select('*');
+      
+      if (fetchError) throw fetchError;
+      
+      const transformedCommands = data.map(cmd => ({
+        id: cmd.id,
+        name: cmd.name,
+        description: cmd.description,
+        syntax: cmd.syntax,
+        platform: cmd.platform,
+        examples: cmd.examples || [],
+        category: cmd.category || 'uncategorized'
+      }));
+      
+      setAllCommands(transformedCommands);
+      setFilteredCommands(transformedCommands);
+      
+    } catch (error) {
+      console.error("Error adding command:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add command",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-1">
         <section className="py-12 bg-gradient-to-b from-background to-muted">
           <div className="container px-4 md:px-6">
-            <h1 className="text-3xl font-bold mb-6">Command Library</h1>
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-3xl font-bold">Command Library</h1>
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Command
+              </Button>
+            </div>
+            
             <div className="mb-8">
               <SearchBar onSearch={handleSearch} />
             </div>
@@ -135,7 +239,22 @@ const Commands = () => {
                 </div>
 
                 <div className="grid gap-6">
-                  {filteredCommands.length > 0 ? (
+                  {isLoading ? (
+                    // Skeleton loading state
+                    Array(4).fill(0).map((_, i) => (
+                      <div key={i} className="w-full border rounded-lg p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <Skeleton className="h-6 w-40 mb-2" />
+                            <Skeleton className="h-4 w-60" />
+                          </div>
+                          <Skeleton className="h-6 w-20" />
+                        </div>
+                        <Skeleton className="h-16 w-full mb-4" />
+                        <Skeleton className="h-12 w-full" />
+                      </div>
+                    ))
+                  ) : filteredCommands.length > 0 ? (
                     filteredCommands.map((command) => (
                       <CommandCard
                         key={command.id}
@@ -154,7 +273,7 @@ const Commands = () => {
                         onClick={() => {
                           setActiveCategory(null);
                           setActivePlatform(null);
-                          setFilteredCommands(sampleCommands);
+                          setFilteredCommands(allCommands);
                         }}
                       >
                         Clear all filters
@@ -167,6 +286,13 @@ const Commands = () => {
           </div>
         </section>
       </main>
+      
+      <NewCommandDialog 
+        open={isDialogOpen} 
+        onOpenChange={setIsDialogOpen}
+        onSubmit={handleAddCommand}
+      />
+      
       <Footer />
     </div>
   );

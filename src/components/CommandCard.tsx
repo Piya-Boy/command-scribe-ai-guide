@@ -1,10 +1,14 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bookmark } from "lucide-react";
+import { Bookmark, Check } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface CommandProps {
+  id?: string;
   name: string;
   description: string;
   syntax: string;
@@ -12,11 +16,64 @@ interface CommandProps {
   examples?: string[];
 }
 
-const CommandCard = ({ name, description, syntax, platform, examples = [] }: CommandProps) => {
+const CommandCard = ({ id, name, description, syntax, platform, examples = [] }: CommandProps) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const { toast } = useToast();
+  
   const platformColor = {
     linux: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
     windows: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     both: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+  };
+
+  const handleSaveCommand = async () => {
+    setIsSaving(true);
+    
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+      
+      if (!sessionData.session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to save commands",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('bookmarks')
+        .insert([{ command_id: id }]);
+      
+      if (error) {
+        if (error.code === '23505') { // Unique violation code
+          toast({
+            title: "Already Saved",
+            description: "This command is already in your bookmarks",
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        setIsSaved(true);
+        toast({
+          title: "Command Saved",
+          description: "Added to your bookmarks",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving command:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save command",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -54,9 +111,24 @@ const CommandCard = ({ name, description, syntax, platform, examples = [] }: Com
         )}
       </CardContent>
       <CardFooter className="pt-0">
-        <Button variant="ghost" className="ml-auto" size="sm">
-          <Bookmark className="h-4 w-4 mr-1" />
-          Save
+        <Button 
+          variant="ghost" 
+          className="ml-auto" 
+          size="sm"
+          onClick={handleSaveCommand}
+          disabled={isSaving || isSaved || !id}
+        >
+          {isSaved ? (
+            <>
+              <Check className="h-4 w-4 mr-1" />
+              Saved
+            </>
+          ) : (
+            <>
+              <Bookmark className="h-4 w-4 mr-1" />
+              {isSaving ? 'Saving...' : 'Save'}
+            </>
+          )}
         </Button>
       </CardFooter>
     </Card>
