@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { z } from "zod";
@@ -17,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GitHub, Mail, LogIn, UserPlus, Eye, EyeOff, Loader2, ArrowLeft, Google } from "lucide-react";
+import { Github, Mail, LogIn, UserPlus, Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const loginSchema = z.object({
@@ -90,7 +89,6 @@ const Auth = () => {
     }
   };
 
-  // If user is already logged in, redirect to where they were going
   if (user) {
     return <Navigate to={from} replace />;
   }
@@ -133,7 +131,7 @@ const Auth = () => {
                     className="w-full"
                     onClick={() => signInWithProvider("github")}
                   >
-                    <GitHub className="mr-2 h-4 w-4" />
+                    <Github className="mr-2 h-4 w-4" />
                     Continue with GitHub
                   </Button>
 
@@ -143,7 +141,7 @@ const Auth = () => {
                     className="w-full"
                     onClick={() => signInWithProvider("google")}
                   >
-                    <Google className="mr-2 h-4 w-4" />
+                    <Mail className="mr-2 h-4 w-4" />
                     Continue with Google
                   </Button>
                 </div>
@@ -239,7 +237,7 @@ const Auth = () => {
                     className="w-full"
                     onClick={() => signInWithProvider("github")}
                   >
-                    <GitHub className="mr-2 h-4 w-4" />
+                    <Github className="mr-2 h-4 w-4" />
                     Sign Up with GitHub
                   </Button>
                   
@@ -249,7 +247,7 @@ const Auth = () => {
                     className="w-full"
                     onClick={() => signInWithProvider("google")}
                   >
-                    <Google className="mr-2 h-4 w-4" />
+                    <Mail className="mr-2 h-4 w-4" />
                     Sign Up with Google
                   </Button>
                 </div>
