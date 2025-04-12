@@ -1,4 +1,3 @@
-
 export interface Command {
   id: string;
   name: string;
@@ -6,7 +5,7 @@ export interface Command {
   syntax: string;
   platform: "linux" | "windows" | "both";
   examples: string[];
-  category: string;
+  category?: string;
 }
 
 export const sampleCommands: Command[] = [

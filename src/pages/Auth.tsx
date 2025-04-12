@@ -1,6 +1,5 @@
-
-import { useState } from "react";
-import { useNavigate, useLocation, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, Navigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -17,8 +16,8 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Github, Mail, LogIn, UserPlus, Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { FaGithub, FaGoogle, FaEye, FaEyeSlash, FaSpinner, FaArrowLeft, FaSignInAlt, FaUserPlus } from "react-icons/fa";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -48,11 +47,21 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register">(
+    searchParams.get("tab") === "register" ? "register" : "login"
+  );
   const { user, loading, signIn, signUp, signInWithProvider } = useAuth();
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "register" || tab === "login") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -101,13 +110,13 @@ const Auth = () => {
         className="absolute left-4 top-4"
         onClick={() => navigate("/")}
       >
-        <ArrowLeft className="mr-2 h-4 w-4" />
+        <FaArrowLeft className="mr-2 h-4 w-4" />
         Back to Home
       </Button>
 
       <div className="mx-auto flex w-full flex-col items-center space-y-6 max-w-md">
         <div className="flex flex-col items-center space-y-2 text-center">
-          <h1 className="text-3xl font-bold">CommandScribe</h1>
+          <h1 className="text-3xl font-bold">Command<span className="text-primary">Scribe</span></h1>
           <p className="text-muted-foreground">
             Sign in to save and manage your commands
           </p>
@@ -116,13 +125,13 @@ const Auth = () => {
         <Card className="w-full">
           <CardHeader>
             <Tabs defaultValue={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-2 mx-auto">
                 <TabsTrigger value="login">Sign In</TabsTrigger>
                 <TabsTrigger value="register">Sign Up</TabsTrigger>
               </TabsList>
             
               <CardContent>
-                <TabsContent value="login" className="mt-0">
+                <TabsContent value="login" className="mt-3">
                   <div className="flex flex-col space-y-4">
                     <div className="grid grid-cols-1 gap-4">
                       <Button 
@@ -131,7 +140,7 @@ const Auth = () => {
                         className="w-full"
                         onClick={() => signInWithProvider("github")}
                       >
-                        <Github className="mr-2 h-4 w-4" />
+                        <FaGithub className="mr-2 h-4 w-4" />
                         Continue with GitHub
                       </Button>
 
@@ -141,7 +150,7 @@ const Auth = () => {
                         className="w-full"
                         onClick={() => signInWithProvider("google")}
                       >
-                        <Mail className="mr-2 h-4 w-4" />
+                        <FaGoogle className="mr-2 h-4 w-4" />
                         Continue with Google
                       </Button>
                     </div>
@@ -187,6 +196,7 @@ const Auth = () => {
                                   <Input 
                                     placeholder="••••••••" 
                                     type={showPassword ? "text" : "password"}
+                                    autoComplete="current-password"
                                     {...field} 
                                   />
                                   <Button
@@ -197,9 +207,9 @@ const Auth = () => {
                                     onClick={() => setShowPassword(!showPassword)}
                                   >
                                     {showPassword ? (
-                                      <EyeOff className="h-4 w-4" />
+                                      <FaEyeSlash className="h-4 w-4" />
                                     ) : (
-                                      <Eye className="h-4 w-4" />
+                                      <FaEye className="h-4 w-4" />
                                     )}
                                     <span className="sr-only">
                                       {showPassword ? "Hide password" : "Show password"}
@@ -214,12 +224,12 @@ const Auth = () => {
                         <Button disabled={loading} className="w-full" type="submit">
                           {loading ? (
                             <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              <FaSpinner className="mr-2 h-4 w-4 animate-spin" />
                               Signing In...
                             </>
                           ) : (
                             <>
-                              <LogIn className="mr-2 h-4 w-4" />
+                              <FaSignInAlt className="mr-2 h-4 w-4" />
                               Sign In
                             </>
                           )}
@@ -228,7 +238,7 @@ const Auth = () => {
                     </Form>
                   </div>
                 </TabsContent>
-                <TabsContent value="register" className="mt-0">
+                <TabsContent value="register" className="mt-3">
                   <div className="flex flex-col space-y-4">
                     <div className="grid grid-cols-1 gap-4">
                       <Button 
@@ -237,7 +247,7 @@ const Auth = () => {
                         className="w-full"
                         onClick={() => signInWithProvider("github")}
                       >
-                        <Github className="mr-2 h-4 w-4" />
+                        <FaGithub className="mr-2 h-4 w-4" />
                         Sign Up with GitHub
                       </Button>
                       
@@ -247,7 +257,7 @@ const Auth = () => {
                         className="w-full"
                         onClick={() => signInWithProvider("google")}
                       >
-                        <Mail className="mr-2 h-4 w-4" />
+                        <FaGoogle className="mr-2 h-4 w-4" />
                         Sign Up with Google
                       </Button>
                     </div>
@@ -327,6 +337,7 @@ const Auth = () => {
                                   <Input 
                                     placeholder="••••••••" 
                                     type={showPassword ? "text" : "password"}
+                                    autoComplete="new-password"
                                     {...field} 
                                   />
                                   <Button
@@ -337,9 +348,9 @@ const Auth = () => {
                                     onClick={() => setShowPassword(!showPassword)}
                                   >
                                     {showPassword ? (
-                                      <EyeOff className="h-4 w-4" />
+                                      <FaEyeSlash className="h-4 w-4" />
                                     ) : (
-                                      <Eye className="h-4 w-4" />
+                                      <FaEye className="h-4 w-4" />
                                     )}
                                     <span className="sr-only">
                                       {showPassword ? "Hide password" : "Show password"}
@@ -362,6 +373,7 @@ const Auth = () => {
                                   <Input 
                                     placeholder="••••••••" 
                                     type={showConfirmPassword ? "text" : "password"}
+                                    autoComplete="new-password"
                                     {...field} 
                                   />
                                   <Button
@@ -372,9 +384,9 @@ const Auth = () => {
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                   >
                                     {showConfirmPassword ? (
-                                      <EyeOff className="h-4 w-4" />
+                                      <FaEyeSlash className="h-4 w-4" />
                                     ) : (
-                                      <Eye className="h-4 w-4" />
+                                      <FaEye className="h-4 w-4" />
                                     )}
                                     <span className="sr-only">
                                       {showConfirmPassword ? "Hide password" : "Show password"}
@@ -389,12 +401,12 @@ const Auth = () => {
                         <Button disabled={loading} className="w-full" type="submit">
                           {loading ? (
                             <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              <FaSpinner className="mr-2 h-4 w-4 animate-spin" />
                               Creating Account...
                             </>
                           ) : (
                             <>
-                              <UserPlus className="mr-2 h-4 w-4" />
+                              <FaUserPlus className="mr-2 h-4 w-4" />
                               Create Account
                             </>
                           )}

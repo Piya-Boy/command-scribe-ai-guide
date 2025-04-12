@@ -13,12 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 interface NewCommandDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (command: Command, type: string) => void;
+  onSubmit: (command: Command) => void;
   initialData?: Partial<Command>;
-  type?: string;
 }
 
-const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "add" }: NewCommandDialogProps) => {
+const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData }: NewCommandDialogProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [syntax, setSyntax] = useState("");
@@ -27,10 +26,6 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
   const [examples, setExamples] = useState<string[]>([""]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    console.log(type);
-  }, [type]);
 
   // Initialize form with initialData when it changes
   useEffect(() => {
@@ -43,13 +38,6 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
       setExamples(initialData.examples && initialData.examples.length > 0 
         ? initialData.examples 
         : [""]);
-    } else {
-      // Reset form when adding new command
-      setName("");
-      setDescription("");
-      setSyntax("");
-      setPlatform("linux");
-      setExamples([""]);
     }
   }, [initialData]);
 
@@ -93,20 +81,20 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
   };
 
   const handleSubmit = () => {
-    if (!isFormValid) return;
-
-    const command: Command = {
-      id: initialData?.id || "",
+    // Filter out empty examples
+    const filteredExamples = examples.filter(example => example.trim() !== "");
+    
+    const newCommand: Command = {
+      id: crypto.randomUUID(), // This will be overwritten by the database
       name,
       description,
       syntax,
       platform,
-      examples: examples.filter(example => example.trim() !== ""),
-      user_id: initialData?.user_id || "",
-      created_at: initialData?.created_at || new Date().toISOString()
+      examples: filteredExamples,
+      category,
     };
-
-    onSubmit(command, type);
+    
+    onSubmit(newCommand);
     onOpenChange(false);
   };
 
@@ -116,6 +104,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
       setDescription(initialData.description || "");
       setSyntax(initialData.syntax || "");
       setPlatform(initialData.platform || "linux");
+      setCategory(initialData.category || "");
       setExamples(initialData.examples && initialData.examples.length > 0 
         ? initialData.examples 
         : [""]);
@@ -143,7 +132,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>{type === "add" ? "Add New Command" : "Edit Command"}</DialogTitle>
+          <DialogTitle>{initialData ? "Edit Commandก" : "Add New Command"}</DialogTitle>
         </DialogHeader>
         
         {!isLoggedIn ? (
@@ -210,6 +199,17 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
               </div>
               
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category" className="text-right">Category</Label>
+                <Input 
+                  id="category" 
+                  value={category} 
+                  onChange={(e) => setCategory(e.target.value)} 
+                  placeholder="e.g., file, network, process" 
+                  className="col-span-3" 
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right pt-2">Examples</Label>
                 <div className="col-span-3 space-y-2">
                   {examples.map((example, index) => (
@@ -248,7 +248,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
                 Cancel
               </Button>
               <Button onClick={handleSubmit} disabled={!isFormValid}>
-                {type === "add" ? "Add Command" : "Save Changes"}
+                {initialData ? "Save Changes" : "Add Command"}
               </Button>
             </DialogFooter>
           </>

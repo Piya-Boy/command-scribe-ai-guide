@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,28 +27,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        
-        // Log auth events for debugging
-        console.log('Auth event:', event);
-        
-        // Fetch additional user data if needed through setTimeout
-        if (currentSession?.user && event !== 'INITIAL_SESSION') {
-          setTimeout(() => {
-            // This is where you would fetch additional user data if needed
-            console.log('User authenticated:', currentSession.user.id);
-          }, 0);
-        }
+        setLoading(false);
       }
     );
-    
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setLoading(false);
-    });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
