@@ -1,73 +1,52 @@
-# Welcome to your Lovable project
+# Command Scribe
 
-## Project info
+A modern web application built with React and TypeScript for managing and documenting commands.
 
-**URL**: https://lovable.dev/projects/74c098b6-a2ca-4e26-8c86-cd01a758a43f
+## Project Overview
 
-## How can I edit this code?
+Command Scribe is a web-based tool that helps users organize, document, and manage various commands and scripts. Built with modern web technologies, it provides a clean and intuitive interface for command management.
 
-There are several ways of editing your application.
+## Prerequisites
 
-**Use Lovable**
+Before you begin, ensure you have the following installed:
+- Node.js (v16 or higher)
+- npm (v8 or higher)
+- Git
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/74c098b6-a2ca-4e26-8c86-cd01a758a43f) and start prompting.
+## Environment Variables
 
-Changes made via Lovable will be committed automatically to this repo.
+Create a `.env` file in the root directory with the following variables:
 
-**Use your preferred IDE**
+```env
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+1. Clone the repository:
+```bash
 git clone <YOUR_GIT_URL>
+cd command-scribe
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. Install dependencies:
+```bash
+npm install
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Development
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/74c098b6-a2ca-4e26-8c86-cd01a758a43f) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes it is!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project uses:
+- Vite for fast development and building
+- TypeScript for type safety
+- React for the UI framework
+- shadcn-ui for component library
+- Tailwind CSS for styling
