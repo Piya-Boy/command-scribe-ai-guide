@@ -29,7 +29,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log(type);
+    // console.log(type);
   }, [type]);
 
   // Initialize form with initialData when it changes

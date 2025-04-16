@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Shield, Key, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getApiKey, removeApiKey } from "@/lib/apiKeyManager";
 
 interface ApiKeyDialogProps {
   open: boolean;
@@ -14,13 +16,42 @@ interface ApiKeyDialogProps {
 export function ApiKeyDialog({ open, onClose, onSave }: ApiKeyDialogProps) {
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [currentKey, setCurrentKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      const key = getApiKey();
+      setCurrentKey(key);
+    }
+  }, [open]);
+
+  const validateApiKey = (key: string) => {
+    // Basic validation for Google AI API key format
+    const isValidFormat = /^AIza[A-Za-z0-9_-]{35}$/.test(key);
+    return isValidFormat;
+  };
 
   const handleSave = () => {
     if (!apiKey.trim()) {
-      setError("Please enter your Google AI API key");
+      setError("Please enter a Google AI API Key");
       return;
     }
+
+    if (!validateApiKey(apiKey)) {
+      setError("Invalid API key format. It must start with 'AIza' followed by 35 characters");
+      return;
+    }
+
     onSave(apiKey);
+    setApiKey("");
+    setError("");
+    setCurrentKey(apiKey);
+  };
+
+  const handleClear = () => {
+    removeApiKey();
+    setCurrentKey(null);
     setApiKey("");
     setError("");
   };
@@ -30,33 +61,73 @@ export function ApiKeyDialog({ open, onClose, onSave }: ApiKeyDialogProps) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-500" />
-            Google AI API Key Required
+            <Key className="h-5 w-5 text-primary" />
+            Google AI API Key Settings
           </DialogTitle>
           <DialogDescription>
-            To use the AI Assistant, you need to provide your Google AI API key. This key will be stored locally in your browser and will not be sent to our servers.
+            You need to provide a Google AI API Key to use the AI Assistant. Your API Key will be encrypted and stored locally on your device only.
           </DialogDescription>
         </DialogHeader>
+        
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            Your API Key will be encrypted and stored securely on your device, and will only be used in this browser.
+          </AlertDescription>
+        </Alert>
+
         <div className="grid gap-4 py-4">
+          {currentKey && (
+            <div className="grid gap-2">
+              <Label>Current API Key</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  value={currentKey}
+                  readOnly
+                  className="font-mono"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowKey(!showKey)}
+                >
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={handleClear}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="grid gap-2">
-            <Label htmlFor="apiKey">Google AI API Key</Label>
+            <Label htmlFor="apiKey">New Google AI API Key</Label>
             <Input
               id="apiKey"
               type="password"
               placeholder="AIza..."
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                setError("");
+              }}
               className="font-mono"
             />
             {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="flex gap-2">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={handleSave}>
-            Save Key
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bookmark, Check, Trash2, Edit } from "lucide-react";
+import { Bookmark, Check, Trash2, Edit, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Command } from "@/types/command";
@@ -38,6 +38,8 @@ const CommandCard = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [copiedExampleIndex, setCopiedExampleIndex] = useState<number | null>(null);
   const { toast } = useToast();
   
   
@@ -55,6 +57,12 @@ const CommandCard = ({
       try {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) return;
+
+        // Skip bookmark check for sample commands (non-UUID IDs)
+        if (!id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          setIsSaved(false);
+          return;
+        }
 
         const { data, error } = await supabase
           .from('bookmarks')
@@ -77,7 +85,7 @@ const CommandCard = ({
     checkBookmarkStatus();
 
     // Set up real-time subscription for bookmark changes
-    if (id) {
+    if (id && id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
       const subscription = supabase
         .channel('bookmark-changes')
         .on(
@@ -217,6 +225,25 @@ const CommandCard = ({
     }
   };
 
+  const handleCopyExample = async (example: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(example);
+      setCopiedExampleIndex(index);
+      toast({
+        title: "Copied!",
+        description: "Example copied to clipboard",
+      });
+      setTimeout(() => setCopiedExampleIndex(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy example:", error);
+      toast({
+        title: "Error",
+        description: "Failed to copy example to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <Card className="w-full shadow-sm hover:shadow-md transition-shadow">
@@ -255,7 +282,9 @@ const CommandCard = ({
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
           <div>
-            <p className="text-xs sm:text-sm font-medium mb-1">Syntax:</p>
+            <div className="flex justify-between items-center mb-1">
+              <p className="text-xs sm:text-sm font-medium">Syntax:</p>
+            </div>
             <pre className="bg-muted p-2 rounded font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap break-words">
               <code>{syntax}</code>
             </pre>
@@ -266,9 +295,27 @@ const CommandCard = ({
               <p className="text-xs sm:text-sm font-medium mb-1">Examples:</p>
               <div className="space-y-2">
                 {examples.map((example, index) => (
-                  <pre key={index} className="bg-muted p-2 rounded font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap break-words">
-                    <code>{example}</code>
-                  </pre>
+                  <div key={index} className="relative">
+                    <pre className="bg-muted p-2 rounded font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap break-words">
+                      <code>{example}</code>
+                    </pre>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 px-2 text-xs"
+                      onClick={() => handleCopyExample(example, index)}
+                    >
+                      {copiedExampleIndex === index ? (
+                        <>
+                          <Check className="h-3 w-3" />
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>

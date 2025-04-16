@@ -45,9 +45,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        // Generic error message to prevent information leakage
         toast({
-          title: "Sign in failed",
-          description: error.message,
+          title: "Authentication failed",
+          description: "Invalid email or password",
           variant: "destructive",
         });
         throw error;
@@ -80,9 +81,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
+        // Generic error message to prevent information leakage
         toast({
-          title: "Sign up failed",
-          description: error.message,
+          title: "Registration failed",
+          description: "Unable to create account. Please try again.",
           variant: "destructive",
         });
         throw error;

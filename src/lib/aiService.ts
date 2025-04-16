@@ -1,6 +1,7 @@
 import { Command } from "@/data/sampleCommands";
-import { getApiKey } from "./apiKeyManager";
+import { getApiKey, removeApiKey } from "./apiKeyManager";
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+import { toast } from "sonner";
 
 interface GPTResponse {
   text: string;
@@ -13,16 +14,20 @@ interface GPTResponse {
 
 export async function getAIResponse(userMessage: string): Promise<GPTResponse> {
   try {
+    // Get and validate the decrypted API key
     const apiKey = getApiKey();
     
     if (!apiKey) {
+      toast.error("Invalid API Key", {
+        description: "Please set up a new API Key",
+      });
       return {
-        text: "Please set an API key to use the AI Assistant",
+        text: "Please enter your Google AI API Key to use the AI Assistant",
         needsApiKey: true
       };
     }
 
-    // Initialize Gemini client with the API key
+    // Initialize Gemini client with the decrypted API key
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
@@ -51,140 +56,68 @@ export async function getAIResponse(userMessage: string): Promise<GPTResponse> {
       history: [
         {
           role: "user",
-          parts: [{ text: `You are a helpful AI assistant specializing in command line operations. Follow these guidelines strictly:
-
-1. When suggesting commands, ALWAYS format them with each field on a new line like this:
-
-
-name:
-command-name
-
-
-description:
-clear description of what the command does
-
-
-Syntax:
-<code>basic command syntax with placeholders</code>
-
-
-platform:
-linux, windows, or both
-
-
-Examples:
-<code>example1</code>
-<code>example2</code>
-<code>example3</code>
-
-
-category:
-network, file, system, etc.
-
-
-Example of correct format:
-
-
-name:
-nmap
-
-
-description:
-Network exploration tool and security scanner
-
-
-Syntax:
-<code>nmap [options] [target]</code>
-
-
-platform:
-linux, windows, or both
-
-
-Examples:
-<code>nmap -sV 192.168.1.1</code>
-<code>nmap -p 1-100 192.168.1.1-254</code>
-<code>nmap -A scanme.nmap.org</code>
-
-
-category:
-network, file, system
-
-
-2. For each command, provide:
-   - A clear explanation of what the command does
-   - The basic syntax with placeholders for parameters
-   - 2-3 practical examples showing different use cases
-   - The platform(s) it works on
-   - Any important warnings or safety considerations
-
-3. Format examples in code blocks using triple backticks with 'bash' or 'cmd' as the language identifier
-
-4. If a command might be dangerous, include appropriate warnings
-
-5. For non-command questions, provide helpful and concise answers
-
-6. ALWAYS ensure the format matches the exact structure shown above`
-  }],
+          parts: [{ text: "You are a helpful command line assistant. When users ask about commands, provide the command details in a structured format. For other queries, be helpful and concise." }],
         },
       ],
     });
 
     const result = await chat.sendMessage(userMessage);
     const response = await result.response;
-    const responseText = response.text() || "Sorry, I couldn't generate a response.";
-    
-    // Check if the response contains a suggested command in JSON format
-    let suggestedCommand: Partial<Command> | undefined;
-    
-    try {
-      // Try to parse the response as JSON
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const commandData = JSON.parse(jsonMatch[0]);
-        suggestedCommand = {
-          name: commandData.name || "",
-          description: commandData.description || "",
-          syntax: commandData.syntax || "",
-          platform: commandData.platform || "both",
-          examples: Array.isArray(commandData.examples) ? commandData.examples : [commandData.examples || ""],
-          category: commandData.category || "command"
-        };
-      }
-    } catch (error) {
-      console.error("Error parsing command JSON:", error);
-    }
+    const responseText = response.text() || "Sorry, unable to generate a response";
+
+    // Parse the response to extract command information if present
+    const suggestedCommand = parseCommandFromResponse(responseText);
 
     return {
       text: responseText,
-      suggestedCommand
+      suggestedCommand,
     };
   } catch (error) {
     console.error('Error getting AI response:', error);
     
-    // Handle specific Gemini errors
+    // Handle general errors
     if (error instanceof Error) {
       if (error.message.includes('API key')) {
+        removeApiKey(); // Remove the invalid key
+        toast.error("Invalid API Key", {
+          description: "Please set up a new API Key",
+        });
         return {
-          text: "API Key ของคุณไม่ถูกต้องหรือหมดอายุ กรุณาตั้งค่าใหม่",
+          text: "Your API Key is invalid or expired. Please set up a new one.",
           needsApiKey: true
         };
       } else if (error.message.includes('rate limit')) {
+        toast.error("Rate Limit Exceeded", {
+          description: "You have reached your API quota limit. Please try again later.",
+        });
         return {
-          text: "คุณได้ใช้โควต้าการเรียก API หมดแล้ว กรุณาลองใหม่ในภายหลัง",
+          text: "You have reached your API quota limit. Please try again later.",
           rateLimitExceeded: true
         };
       } else if (error.message.includes('network')) {
+        toast.error("Connection Failed", {
+          description: "Please check your internet connection",
+        });
         return {
-          text: "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต",
+          text: "Network connection error. Please check your internet connection",
           networkError: true
         };
       }
     }
     
+    toast.error("Error", {
+      description: "An unexpected error occurred. Please try again.",
+    });
     return {
-      text: "ขออภัย เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่อีกครั้ง",
-      error: error instanceof Error ? error.message : 'Unknown error'
+      text: "An unexpected error occurred. Please try again.",
+      error: error instanceof Error ? error.message : "Unknown error"
     };
   }
+}
+
+// Helper function to parse command information from AI response
+function parseCommandFromResponse(response: string): Partial<Command> | undefined {
+  // Implement command parsing logic here
+  // This is a placeholder - you'll need to implement the actual parsing logic
+  return undefined;
 } 

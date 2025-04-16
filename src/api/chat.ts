@@ -13,6 +13,11 @@ export async function handleChatRequest(message: string, apiKey: string) {
       return { error: 'Google AI API key is required' };
     }
 
+    // Validate API key format
+    if (!apiKey.match(/^AIza[A-Za-z0-9_-]{35}$/)) {
+      return { error: 'Invalid API key format' };
+    }
+
     // Initialize Gemini client with the key from the request
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
@@ -73,6 +78,18 @@ export async function handleChatRequest(message: string, apiKey: string) {
     };
   } catch (error) {
     console.error('Error in chat API:', error);
+    
+    // Handle specific error cases
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        return { error: 'Invalid or expired API key' };
+      } else if (error.message.includes('rate limit')) {
+        return { error: 'Rate limit exceeded. Please try again later.' };
+      } else if (error.message.includes('network')) {
+        return { error: 'Network error. Please check your internet connection.' };
+      }
+    }
+    
     return { error: 'Internal server error' };
   }
 } 
