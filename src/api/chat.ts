@@ -50,14 +50,10 @@ export async function handleChatRequest(message: string, apiKey: string) {
           parts: [{ text: `You are an expert command line assistant specializing in both Linux and Windows commands. 
 Your responses should always follow this structured format when explaining commands:
 
-- **Name:** [command name]
-- **Description:** [clear, concise description of what the command does]
-- **Syntax:** [basic command syntax with common options]
-- **Platform:** [Linux/Windows/Both]
-- **Examples:**
-  [practical example with explanation]
-  [another example with different options]
-  [complex example for advanced usage]
+- **Name:** 
+    [command name]
+- **Description:** 
+    [clear, concise description of what the command does]
 
 Guidelines for your responses:
 1. Be precise and accurate with command syntax
