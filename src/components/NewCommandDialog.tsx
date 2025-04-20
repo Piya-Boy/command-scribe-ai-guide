@@ -9,6 +9,7 @@ import { X, Plus, LogIn } from "lucide-react";
 import type { Command } from "@/types/command";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import ReactMarkdown from "react-markdown";
 
 interface NewCommandDialogProps {
   open: boolean;
@@ -175,13 +176,20 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
               
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">Description</Label>
-                <Textarea 
-                  id="description" 
-                  value={description} 
-                  onChange={(e) => setDescription(e.target.value)} 
-                  placeholder="e.g., Search for patterns in files" 
-                  className="col-span-3" 
-                />
+                <div className="col-span-3">
+                  <Textarea 
+                    id="description" 
+                    value={description} 
+                    onChange={(e) => setDescription(e.target.value)} 
+                    placeholder="e.g., Search for patterns in files" 
+                    className="mb-2" 
+                  />
+                  {description && (
+                    <div className="mt-2 p-4 bg-muted rounded-md">
+                      <ReactMarkdown>{description}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="grid grid-cols-4 items-center gap-4">

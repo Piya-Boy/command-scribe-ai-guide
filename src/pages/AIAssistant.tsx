@@ -4,23 +4,22 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, SaveIcon, Copy, RefreshCw, Edit, Check, X } from "lucide-react";
-import { Command } from "@/data/sampleCommands";
+import { Send, Copy, RefreshCw, Edit, Check, X, Languages } from "lucide-react";
 import { getAIResponse } from "@/lib/aiService";
 import { ApiKeyDialog } from "@/components/ApiKeyDialog";
 import { hasApiKey, setApiKey } from "@/lib/apiKeyManager";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
-import NewCommandDialog from "@/components/NewCommandDialog";
-import { supabase } from "@/integrations/supabase/client";
 import AuthRequiredDialog from "@/components/AuthRequiredDialog";
+import { Components } from "react-markdown";
+import { TranslationButton } from "@/components/TranslationButton";
 
 interface Message {
   id: string;
   sender: "user" | "assistant";
   text: string;
   timestamp: Date;
-  suggestedCommand?: Partial<Command>;
+  translatedText?: string;
 }
 
 const AIAssistant = () => {
@@ -35,13 +34,11 @@ const AIAssistant = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
-  const [showNewCommandDialog, setShowNewCommandDialog] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
-  const [commandToSave, setCommandToSave] = useState<Partial<Command> | null>(
-    null
-  );
   const [isEditing, setIsEditing] = useState<Record<string, boolean>>({});
   const [editedText, setEditedText] = useState<Record<string, string>>({});
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     // Check if API key exists on component mount
@@ -91,7 +88,6 @@ const AIAssistant = () => {
         sender: "assistant",
         text: aiResponse.text,
         timestamp: new Date(),
-        suggestedCommand: aiResponse.suggestedCommand,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -122,75 +118,20 @@ const AIAssistant = () => {
     setShowApiKeyDialog(false);
   };
 
-  const handleCopyMessage = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
-  };
-
-  const handleSaveMessage = (message: Message) => {
-    // Extract command information from the message
-    // This is a simple implementation - you might want to enhance this
-    // to better extract command details from the message text
-    const commandName = message.text.match(/`([^`]+)`/)?.[1] || "";
-    const commandDescription = message.text
-      .split("\n")[0]
-      .replace(/`[^`]+`/, "")
-      .trim();
-    const commandSyntax =
-      message.text.match(/```(?:bash|shell)?\n([^`]+)```/)?.[1] || "";
-
-    // Extract multiple examples from code blocks
-    const codeBlockRegex = /```(?:bash|shell)?\n([^`]+)```/g;
-    const codeBlocks = [...message.text.matchAll(codeBlockRegex)];
-    const commandExamples = codeBlocks
-      .map((block) => block[1].trim())
-      .filter(Boolean);
-
-    // If no code blocks found, try to find examples in the text
-    let additionalExamples: string[] = [];
-    if (commandExamples.length === 0) {
-      // Look for lines that might be examples (lines with command name)
-      const lines = message.text.split("\n");
-      additionalExamples = lines
-        .filter((line) => line.includes(commandName) && !line.includes("```"))
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0 && line !== commandSyntax);
-    }
-
-    // Combine all examples
-    const allExamples = [...commandExamples, ...additionalExamples];
-
-    // Clean up examples by removing '#' '*' and any leading/trailing whitespace
-    const cleanedExamples = allExamples
-      .map((example) => example.replace(/[#*]/g, "").trim())
-      .filter((example) => example.length > 0);
-
-    // Determine platform based on message content
-    let platform: "linux" | "windows" | "both" = "both";
-
-    const hasLinux = message.text.toLowerCase().includes("linux");
-    const hasWindows = message.text.toLowerCase().includes("windows");
-
-    if (hasLinux && hasWindows) {
-      platform = "both";
-    } else if (hasLinux) {
-      platform = "linux";
-    } else if (hasWindows) {
-      platform = "windows";
-    }
-
-    // Create a partial command object
-    const command: Partial<Command> = {
-      name: commandName || "",
-      description: commandDescription || "",
-      syntax: commandSyntax || "",
-      platform: platform,
-      examples: cleanedExamples.length > 0 ? cleanedExamples : [""],
-    };
-
-    // Set the command to save and open the dialog
-    setCommandToSave(command);
-    setShowNewCommandDialog(true);
+  const handleCopyCode = (codeText: string, id: string) => {
+    // Step 1: Copy the text to clipboard
+    navigator.clipboard.writeText(codeText);
+    
+    // Step 2: Show success feedback
+    setCopiedCodeId(id);
+    toast.success("Command copied to clipboard");
+    
+    // Step 3: Reset the feedback after 2 seconds
+    setTimeout(() => {
+      if (copiedCodeId === id) {
+        setCopiedCodeId(null);
+      }
+    }, 2000);
   };
 
   const handleRegenerateAnswer = async (userMessage: string) => {
@@ -218,7 +159,6 @@ const AIAssistant = () => {
         sender: "assistant",
         text: aiResponse.text,
         timestamp: new Date(),
-        suggestedCommand: aiResponse.suggestedCommand,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -236,48 +176,12 @@ const AIAssistant = () => {
     }
   };
 
-  const handleAddCommand = async (newCommand: Command, type: string) => {
-    try {
-      // Get the session to check if user is logged in
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError) throw sessionError;
-
-      // Check if user is logged in
-      if (!sessionData.session) {
-        // Close the new command dialog
-        setShowNewCommandDialog(false);
-        // Show auth required dialog
-        setShowAuthDialog(true);
-        return;
-      }
-
-      // If logged in, proceed with adding the command
-      const user_id = sessionData.session.user.id;
-
-      // Insert the new command
-      const { error } = await supabase.from("commands").insert([
-        {
-          name: newCommand.name,
-          description: newCommand.description,
-          syntax: newCommand.syntax,
-          platform: newCommand.platform,
-          examples: newCommand.examples,
-          user_id: user_id,
-        },
-      ]);
-
-      if (error) throw error;
-
-      toast.success("Command Added", {
-        description: `${newCommand.name} has been added successfully`,
-      });
-    } catch (error) {
-      console.error("Error adding command:", error);
-      toast.error("Error", {
-        description: "Failed to add command",
-      });
-    }
+  const handleTranslationComplete = (messageId: string, translatedText: string | undefined) => {
+    setMessages(prev => prev.map(m => 
+      m.id === messageId 
+        ? {...m, translatedText}
+        : m
+    ));
   };
 
   return (
@@ -288,8 +192,8 @@ const AIAssistant = () => {
           <div className="container px-4 md:px-6">
             <h1 className="text-3xl font-bold mb-6">AI Command Assistant</h1>
             <div className="flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
-              <div className="flex-1 overflow-y-auto  p-4 space-y-4 min-h-[500px] max-h-[500px]">
-                {messages.map((message) => (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[500px] max-h-[500px]">
+                {messages.map((message, index) => (
                   <div
                     key={message.id}
                     className={`flex ${
@@ -308,24 +212,54 @@ const AIAssistant = () => {
                       <div className="prose prose-sm dark:prose-invert max-w-none">
                         <ReactMarkdown
                           components={{
-                            code: ({ node, className, children, ...props }) => {
+                            pre: ({ children }) => (
+                              <pre className="bg-gray-500 dark:bg-gray-300 text-gray-900 rounded-md p-2 overflow-x-auto my-2">
+                                {children}
+                              </pre>
+                            ),
+                            code: ({ children, className }) => {
                               const match = /language-(\w+)/.exec(className || '');
-                              const isBlock = match !== null;
-                              return isBlock ? (
-                                <pre className="bg-gray-400 dark:text-gray-800 p-2 rounded font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap break-words mb-4">
-                                  <code className={className} {...props}>
+                              const isInline = !match;
+                              
+                              if (isInline) {
+                                return (
+                                  <code className="bg-gray-500 dark:bg-gray-300 text-gray-900 px-1 py-0.5 rounded text-sm font-mono">
                                     {children}
                                   </code>
-                                </pre>
-                              ) : (
-                                <code className="bg-gray-400 dark:text-gray-800 px-2 py-1 rounded font-mono text-xs sm:text-sm" {...props}>
-                                  {children}
-                                </code>
+                                );
+                              }
+                              
+                              return (
+                                <div className="relative flex justify-between items-center">
+                                  <code className="bg-gray-500 dark:bg-gray-300 text-gray-900 block p-2 rounded-md text-sm font-mono whitespace-pre-wrap break-words">
+                                    {children}
+                                  </code>
+                                  {(() => {
+                                    const uniqueId = `code-${message.id}-${Date.now()}`;
+                                    return (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute text-gray-900 dark:text-muted-foreground top-1 right-1 w-6 h-6 px-2 text-xs"
+                                        onClick={() => {
+                                          const codeText = children?.toString() || '';
+                                          handleCopyCode(codeText, uniqueId);
+                                        }}
+                                      >
+                                        {copiedCodeId === uniqueId ? (
+                                          <Check className="h-3 w-3" />
+                                        ) : (
+                                          <Copy className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    );
+                                  })()}
+                                </div>
                               );
                             }
                           }}
                         >
-                          {message.text}
+                          {message.translatedText || message.text}
                         </ReactMarkdown>
                       </div>
                       {message.sender === "user" && (
@@ -344,12 +278,10 @@ const AIAssistant = () => {
                           {isEditing[message.id] && (
                             <>
                               <Textarea
-                              
                                 value={editedText[message.id]}
                                 onChange={e => setEditedText(prev => ({...prev, [message.id]: e.target.value}))}
                                 className="mt-2 text-white"
                               />
-                              {/* if edit prompt then generate new answer */}
                               <div className="flex justify-end space-x-2 mt-2">
                                 <Button 
                                   variant="ghost"
@@ -359,7 +291,6 @@ const AIAssistant = () => {
                                       m.id === message.id ? {...m, text: editedText[message.id]} : m
                                     ));
                                     setIsEditing(prev => ({...prev, [message.id]: false}));
-                                    // Regenerate answer with the edited prompt
                                     handleRegenerateAnswer(editedText[message.id]);
                                   }}
                                 >
@@ -383,22 +314,6 @@ const AIAssistant = () => {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0"
-                            onClick={() => handleCopyMessage(message.text)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleSaveMessage(message)}
-                          >
-                            <SaveIcon className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
                             onClick={() => {
                               // Find the previous user message
                               const messageIndex = messages.findIndex(
@@ -414,6 +329,13 @@ const AIAssistant = () => {
                           >
                             <RefreshCw className="h-4 w-4" />
                           </Button>
+                          <TranslationButton
+                            text={message.text}
+                            messageId={message.id}
+                            onTranslationComplete={(translatedText) => handleTranslationComplete(message.id, translatedText)}
+                            showApiKeyDialog={() => setShowApiKeyDialog(true)}
+                            isTranslated={!!message.translatedText}
+                          />
                         </div>
                       )}
                       <span className="block mt-1 text-xs opacity-70">
@@ -437,7 +359,6 @@ const AIAssistant = () => {
                   </div>
                 )}
               </div>
-              {/* Input Area */}
               <div className="">
                 <div className="max-w-3xl mx-auto px-4 py-4">
                   <div className="relative">
@@ -472,13 +393,6 @@ const AIAssistant = () => {
         open={showApiKeyDialog}
         onClose={() => setShowApiKeyDialog(false)}
         onSave={handleSaveApiKey}
-      />
-      <NewCommandDialog
-        open={showNewCommandDialog}
-        onOpenChange={setShowNewCommandDialog}
-        onSubmit={handleAddCommand}
-        initialData={commandToSave}
-        type="add"
       />
       <AuthRequiredDialog
         open={showAuthDialog}

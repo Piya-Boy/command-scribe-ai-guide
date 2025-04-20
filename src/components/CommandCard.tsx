@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Command } from "@/types/command";
 import { FaBookmark } from "react-icons/fa";
 import AuthRequiredDialog from "./AuthRequiredDialog";
+import { TranslationButton } from "./TranslationButton";
 
 // Make examples optional in the props to match how it's being used
 interface CommandProps {
@@ -40,6 +41,8 @@ const CommandCard = ({
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [copiedExampleIndex, setCopiedExampleIndex] = useState<number | null>(null);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [translatedDescription, setTranslatedDescription] = useState<string | undefined>(undefined);
   const { toast } = useToast();
   
   
@@ -244,6 +247,10 @@ const CommandCard = ({
     }
   };
 
+  const handleTranslationComplete = (translatedText: string | undefined) => {
+    setTranslatedDescription(translatedText);
+  };
+
   return (
     <>
       <Card className="w-full shadow-sm hover:shadow-md transition-shadow">
@@ -251,7 +258,9 @@ const CommandCard = ({
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
             <div className="flex-1 min-w-0">
               <CardTitle className="text-base sm:text-lg font-mono break-words">{name}</CardTitle>
-              <CardDescription className="mt-1 text-sm sm:text-base break-words">{description}</CardDescription>
+              <CardDescription className="mt-1 text-sm sm:text-base break-words">
+                {translatedDescription || description}
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Badge className={`${platformColor[platform]} self-start text-xs sm:text-sm`}>
@@ -321,11 +330,20 @@ const CommandCard = ({
             </div>
           )}
         </CardContent>
-        <CardFooter>
+        <CardFooter >
+          <div className="flex items-center gap-2">
+            <TranslationButton
+              text={description}
+              messageId={id || 'command-' + name}
+              onTranslationComplete={handleTranslationComplete}
+              showApiKeyDialog={() => setShowApiKeyDialog(true)}
+              isTranslated={!!translatedDescription}
+            />
+          </div>
           {!isSample && (
             <Button 
               variant="ghost" 
-              className="ml-auto w-full sm:w-auto text-xs sm:text-sm"
+              className="text-xs sm:text-sm"
               size="sm"
               onClick={handleSaveCommand}
               disabled={isSaving || !id}

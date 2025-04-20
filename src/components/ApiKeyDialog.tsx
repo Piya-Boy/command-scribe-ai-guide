@@ -67,6 +67,12 @@ export function ApiKeyDialog({ open, onClose, onSave }: ApiKeyDialogProps) {
           <DialogDescription>
             You need to provide a Google AI API Key to use the AI Assistant. Your API Key will be encrypted and stored locally on your device only.
           </DialogDescription>
+          {/* ไปเอา API Key ได้จากลิงค์นี้ */}
+          <DialogDescription>
+            <a href="https://console.cloud.google.com/welcome" target="_blank" rel="noopener noreferrer">
+              Go to Google Cloud Console to create an API Key
+            </a>
+          </DialogDescription>
         </DialogHeader>
         
         <Alert>
