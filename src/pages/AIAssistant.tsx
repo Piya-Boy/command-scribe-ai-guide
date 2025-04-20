@@ -308,7 +308,7 @@ const AIAssistant = () => {
                           )}
                         </div>
                       )}
-                      {message.sender === "assistant" && !isLoading && (
+                      {message.sender === "assistant" && !isLoading && message.id !== "welcome" && (
                         <div className="flex space-x-2 mt-2">
                           <Button
                             variant="ghost"
