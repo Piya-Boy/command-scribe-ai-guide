@@ -6,8 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Copy, RefreshCw, Edit, Check, X, Languages } from "lucide-react";
 import { getAIResponse } from "@/lib/aiService";
-import { ApiKeyDialog } from "@/components/ApiKeyDialog";
-import { hasApiKey, setApiKey } from "@/lib/apiKeyManager";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import AuthRequiredDialog from "@/components/AuthRequiredDialog";
@@ -33,19 +31,11 @@ const AIAssistant = () => {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [isEditing, setIsEditing] = useState<Record<string, boolean>>({});
   const [editedText, setEditedText] = useState<Record<string, string>>({});
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    // Check if API key exists on component mount
-    if (!hasApiKey()) {
-      setShowApiKeyDialog(true);
-    }
-  }, []);
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;
@@ -65,22 +55,6 @@ const AIAssistant = () => {
     try {
       // Get AI response
       const aiResponse = await getAIResponse(input);
-
-      // Check if API key is needed
-      if (aiResponse.needsApiKey) {
-        setShowApiKeyDialog(true);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            sender: "assistant",
-            text: aiResponse.text,
-            timestamp: new Date(),
-          },
-        ]);
-        setIsLoading(false);
-        return;
-      }
 
       // Add assistant message
       const assistantMessage: Message = {
@@ -113,11 +87,6 @@ const AIAssistant = () => {
     }
   };
 
-  const handleSaveApiKey = (apiKey: string) => {
-    setApiKey(apiKey);
-    setShowApiKeyDialog(false);
-  };
-
   const handleCopyCode = (codeText: string, id: string) => {
     // Step 1: Copy the text to clipboard
     navigator.clipboard.writeText(codeText);
@@ -138,21 +107,6 @@ const AIAssistant = () => {
     setIsLoading(true);
     try {
       const aiResponse = await getAIResponse(userMessage);
-
-      if (aiResponse.needsApiKey) {
-        setShowApiKeyDialog(true);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            sender: "assistant",
-            text: aiResponse.text,
-            timestamp: new Date(),
-          },
-        ]);
-        setIsLoading(false);
-        return;
-      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -333,7 +287,6 @@ const AIAssistant = () => {
                             text={message.text}
                             messageId={message.id}
                             onTranslationComplete={(translatedText) => handleTranslationComplete(message.id, translatedText)}
-                            showApiKeyDialog={() => setShowApiKeyDialog(true)}
                             isTranslated={!!message.translatedText}
                           />
                         </div>
@@ -389,11 +342,6 @@ const AIAssistant = () => {
         </section>
       </main>
       <Footer />
-      <ApiKeyDialog
-        open={showApiKeyDialog}
-        onClose={() => setShowApiKeyDialog(false)}
-        onSave={handleSaveApiKey}
-      />
       <AuthRequiredDialog
         open={showAuthDialog}
         onOpenChange={setShowAuthDialog}

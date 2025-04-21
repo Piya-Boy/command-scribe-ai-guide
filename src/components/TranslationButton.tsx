@@ -8,7 +8,6 @@ interface TranslationButtonProps {
   text: string;
   messageId: string;
   onTranslationComplete: (translatedText: string | undefined) => void;
-  showApiKeyDialog: () => void;
   isTranslated: boolean;
 }
 
@@ -16,7 +15,6 @@ export const TranslationButton = ({
   text,
   messageId,
   onTranslationComplete,
-  showApiKeyDialog,
   isTranslated,
 }: TranslationButtonProps) => {
   const [isTranslating, setIsTranslating] = useState(false);
@@ -35,13 +33,6 @@ export const TranslationButton = ({
       
       // Get AI response for translation
       const aiResponse = await getAIResponse(translationPrompt);
-
-      if (aiResponse.needsApiKey) {
-        showApiKeyDialog();
-        setIsTranslating(false);
-        return;
-      }
-
       onTranslationComplete(aiResponse.text);
     } catch (error) {
       console.error('Translation error:', error);
@@ -54,16 +45,13 @@ export const TranslationButton = ({
   return (
     <Button
       variant="ghost"
-      size="sm"
-      className="h-8 w-8 p-0"
+      size="icon"
       onClick={handleTranslation}
       disabled={isTranslating}
+      className="h-8 w-8"
+      title={isTranslated ? "Show original text" : "Translate to Thai"}
     >
-      {isTranslating ? (
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      ) : (
-        <Languages className="h-4 w-4" />
-      )}
+      <Languages className={`h-4 w-4 ${isTranslated ? 'text-primary' : ''}`} />
     </Button>
   );
 }; 

@@ -33,27 +33,31 @@ function deriveEncryptionKey(): string {
 
 export function getApiKey(): string | null {
   if (typeof window === 'undefined') return null;
-  const encryptedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-  if (!encryptedKey) return null;
   
-  try {
-    const encryptionKey = deriveEncryptionKey();
-    const bytes = CryptoJS.AES.decrypt(encryptedKey, encryptionKey);
-    const decryptedKey = bytes.toString(CryptoJS.enc.Utf8);
-    
-    // Validate the decrypted key format
-    if (!decryptedKey.match(/^AIza[A-Za-z0-9_-]{35}$/)) {
-      console.error('Decrypted key is invalid');
-      removeApiKey(); // Remove invalid key
-      return null;
+  // First try to get the key from localStorage
+  const encryptedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+  if (encryptedKey) {
+    try {
+      const encryptionKey = deriveEncryptionKey();
+      const bytes = CryptoJS.AES.decrypt(encryptedKey, encryptionKey);
+      const decryptedKey = bytes.toString(CryptoJS.enc.Utf8);
+      
+      // Validate the decrypted key format
+      if (decryptedKey.match(/^AIza[A-Za-z0-9_-]{35}$/)) {
+        return decryptedKey;
+      }
+    } catch (error) {
+      console.error('Error decrypting stored API key:', error);
     }
-    
-    return decryptedKey;
-  } catch (error) {
-    console.error('Error decrypting API key:', error);
-    removeApiKey(); // Remove corrupted key
-    return null;
   }
+  
+  // If no valid key in localStorage, try environment variable
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (envKey && envKey.match(/^AIza[A-Za-z0-9_-]{35}$/)) {
+    return envKey;
+  }
+  
+  return null;
 }
 
 export function setApiKey(apiKey: string): void {
