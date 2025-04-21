@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { X, Plus, LogIn } from "lucide-react";
 import type { Command } from "@/types/command";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
   const [category, setCategory] = useState("");
   const [examples, setExamples] = useState<string[]>([""]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,6 +46,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
       setExamples(initialData.examples && initialData.examples.length > 0 
         ? initialData.examples 
         : [""]);
+      setIsPublished(initialData.isPublished || false);
     } else {
       // Reset form when adding new command
       setName("");
@@ -51,6 +54,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
       setSyntax("");
       setPlatform("linux");
       setExamples([""]);
+      setIsPublished(false);
     }
   }, [initialData]);
 
@@ -104,7 +108,8 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
       platform,
       examples: examples.filter(example => example.trim() !== ""),
       user_id: initialData?.user_id || "",
-      created_at: initialData?.created_at || new Date().toISOString()
+      created_at: initialData?.created_at || new Date().toISOString(),
+      isPublished
     };
 
     onSubmit(command, type);
@@ -252,12 +257,26 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
             </div>
             
             <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={!isFormValid}>
-                {type === "add" ? "Add Command" : "Save Changes"}
-              </Button>
+              <div className="flex items-center gap-4 w-full justify-between">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="publish-mode"
+                    checked={isPublished}
+                    onCheckedChange={setIsPublished}
+                  />
+                  <Label htmlFor="publish-mode">
+                    {isPublished ? "Published" : "Draft"}
+                  </Label>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSubmit} disabled={!isFormValid}>
+                    {type === "add" ? "Add Command" : "Save Changes"}
+                  </Button>
+                </div>
+              </div>
             </DialogFooter>
           </>
         )}

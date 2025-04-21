@@ -48,6 +48,7 @@ export type Database = {
           platform: string
           syntax: string
           user_id: string | null
+          isPublished: boolean
         }
         Insert: {
           created_at?: string
@@ -58,6 +59,7 @@ export type Database = {
           platform: string
           syntax: string
           user_id?: string | null
+          isPublished?: boolean
         }
         Update: {
           created_at?: string
@@ -68,6 +70,7 @@ export type Database = {
           platform?: string
           syntax?: string
           user_id?: string | null
+          isPublished?: boolean
         }
         Relationships: []
       }

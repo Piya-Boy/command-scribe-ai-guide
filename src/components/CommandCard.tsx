@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bookmark, Check, Trash2, Edit, Copy } from "lucide-react";
+import { Bookmark, Check, Trash2, Edit, Copy, Tag as TagIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Command } from "@/types/command";
+import { Command} from "@/types/command";
 import { FaBookmark } from "react-icons/fa";
 import AuthRequiredDialog from "./AuthRequiredDialog";
 import { TranslationButton } from "./TranslationButton";
@@ -18,10 +18,14 @@ interface CommandProps {
   syntax: string;
   platform: "linux" | "windows" | "both";
   examples?: string[];
+  category?: string;
+  tags?: string[];
   onDelete?: () => void;
   onEdit?: () => void;
   isSample?: boolean;
   showEditDelete?: boolean;
+  isPublished?: boolean;
+  user_id?: string;
 }
 
 const CommandCard = ({ 
@@ -31,18 +35,20 @@ const CommandCard = ({
   syntax, 
   platform, 
   examples = [], 
+  category,
   onDelete, 
   onEdit,
   isSample = false,
-  showEditDelete = false 
+  showEditDelete = false,
+  isPublished = false,
+  user_id
 }: CommandProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const [copiedExampleIndex, setCopiedExampleIndex] = useState<number | null>(null);
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [translatedDescription, setTranslatedDescription] = useState<string | undefined>(undefined);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { toast } = useToast();
   
   
@@ -51,6 +57,20 @@ const CommandCard = ({
     windows: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     both: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
   };
+
+  const publishedColor = {
+    unpublished: "bg-red-500 text-red-900 dark:bg-red-500 dark:text-red-900",
+    published: "bg-yellow-500 text-yellow-900 dark:bg-yellow-500 dark:text-yellow-900"
+  };
+
+  // Add effect to get current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setCurrentUserId(session?.user?.id || null);
+    };
+    getCurrentUser();
+  }, []);
 
   // Check if the command is already bookmarked when the component mounts
   useEffect(() => {
@@ -252,76 +272,55 @@ const CommandCard = ({
   };
 
   return (
-    <>
-      <Card className="w-full shadow-sm hover:shadow-md transition-shadow">
-        <CardHeader className="pb-2">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-base sm:text-lg font-mono break-words">{name}</CardTitle>
-              <CardDescription className="mt-1 text-sm sm:text-base break-words">
-                {translatedDescription || description}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={`${platformColor[platform]} self-start text-xs sm:text-sm`}>
-                {platform === "both" ? "Linux & Windows" : platform === "linux" ? "Linux" : "Windows"}
-              </Badge>
-              {showEditDelete && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onEdit?.()}
-                    className="h-8 w-8"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDelete?.()}
-                    className="h-8 w-8"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4">
+    <Card className="w-full">
+      <CardHeader>
+        <div className="flex justify-between items-start">
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <p className="text-xs sm:text-sm font-medium">Syntax:</p>
-            </div>
-            <pre className="bg-muted p-2 rounded font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap break-words">
-              <code>{syntax}</code>
-            </pre>
+            <CardTitle className="text-xl">{name}</CardTitle>
+            <CardDescription className="mt-2">
+              {translatedDescription || description}
+            </CardDescription>
           </div>
-
+          <div className="flex gap-2 mt-2">
+          <Badge variant="outline" className={platformColor[platform]}>
+            {platform.charAt(0).toUpperCase() + platform.slice(1)}
+          </Badge>
+          {category && (
+            <Badge variant="secondary">
+                  {category}
+            </Badge>
+          )}
+          {/* TODO: Add published badge */}
+          {isPublished && user_id === currentUserId && (
+            <Badge variant="secondary" className={publishedColor.published}>
+              Published
+            </Badge>
+          )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-sm font-medium mb-1">Syntax</h4>
+            <code className="bg-muted p-2 rounded-md block">{syntax}</code>
+          </div>
           {examples.length > 0 && (
             <div>
-              <p className="text-xs sm:text-sm font-medium mb-1">Examples:</p>
+              <h4 className="text-sm font-medium mb-1">Examples</h4>
               <div className="space-y-2">
                 {examples.map((example, index) => (
-                  <div key={index} className="relative">
-                    <pre className="bg-muted p-2 rounded font-mono text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap break-words">
-                      <code>{example}</code>
-                    </pre>
+                  <div key={index} className="flex items-center gap-2">
+                    <code className="bg-muted p-2 rounded-md flex-1">{example}</code>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="absolute top-1 right-1 h-6 px-2 text-xs"
+                      size="icon"
                       onClick={() => handleCopyExample(example, index)}
                     >
                       {copiedExampleIndex === index ? (
-                        <>
-                          <Check className="h-3 w-3" />
-                        </>
+                        <Check className="h-4 w-4 text-green-500" />
                       ) : (
-                        <>
-                          <Copy className="h-3 w-3" />
-                        </>
+                        <Copy className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
@@ -329,46 +328,57 @@ const CommandCard = ({
               </div>
             </div>
           )}
-        </CardContent>
-        <CardFooter >
-          <div className="flex items-center gap-2">
-            <TranslationButton
-              text={description}
-              messageId={id || 'command-' + name}
-              onTranslationComplete={handleTranslationComplete}
-              showApiKeyDialog={() => setShowApiKeyDialog(true)}
-              isTranslated={!!translatedDescription}
-            />
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <div className="flex gap-2">
+        <TranslationButton
+          text={description}
+          onTranslationComplete={handleTranslationComplete}
+          messageId={`command-${id || 'new'}`}
+          isTranslated={!!translatedDescription}
+        />
+        </div>
+        <div className="flex gap-2">
+            {!isSample && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSaveCommand}
+                disabled={isSaving}
+              >
+                {isSaved ? (
+                  <FaBookmark className="h-4 w-4 text-yellow-500" />
+                ) : (
+                  <Bookmark className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+            {showEditDelete && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onEdit}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onDelete}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
-          {!isSample && (
-            <Button 
-              variant="ghost" 
-              className="text-xs sm:text-sm"
-              size="sm"
-              onClick={handleSaveCommand}
-              disabled={isSaving || !id}
-            >
-              {isSaved ? (
-                <>
-                  <FaBookmark className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Saved
-                </>
-              ) : (
-                <>
-                  <Bookmark className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  {isSaving ? 'Saving...' : 'Save'}
-                </>
-              )}
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
-
-      <AuthRequiredDialog 
-        open={showAuthDialog} 
-        onOpenChange={setShowAuthDialog} 
+      </CardFooter>
+      <AuthRequiredDialog
+        open={showAuthDialog}
+        onOpenChange={setShowAuthDialog}
       />
-    </>
+    </Card>
   );
 };
 

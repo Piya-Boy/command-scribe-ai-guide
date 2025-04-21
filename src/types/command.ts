@@ -8,6 +8,7 @@ export interface Command {
   category?: string;
   created_at?: string;
   user_id?: string;
+  isPublished?: boolean;
 }
 
 // This is a type used for inserting new commands

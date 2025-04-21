@@ -69,11 +69,11 @@ const Commands = () => {
         let commands: Command[] = [];
 
         if (isLoggedIn && currentUserId) {
-          // If logged in, fetch only user's commands
+          // If logged in, fetch published commands and user's own commands
           const { data, error } = await supabase
             .from('commands')
             .select('*')
-            .eq('user_id', currentUserId);
+            .or(`isPublished.eq.true,user_id.eq.${currentUserId}`);
           
           if (error) throw error;
           
@@ -86,20 +86,21 @@ const Commands = () => {
               platform: cmd.platform as "linux" | "windows" | "both",
               examples: cmd.examples || [],
               user_id: cmd.user_id,
-              created_at: cmd.created_at
+              created_at: cmd.created_at,
+              isPublished: cmd.isPublished
             }));
           }
         } else {
-          // If not logged in, fetch all commands and combine with sample commands
+          // If not logged in, fetch only published commands
           const { data, error } = await supabase
             .from('commands')
-            .select('*');
+            .select('*')
+            .eq('isPublished', true);
           
           if (error) throw error;
           
           if (data) {
-            // Transform database commands
-            const dbCommands = data.map(cmd => ({
+            commands = data.map(cmd => ({
               id: cmd.id,
               name: cmd.name,
               description: cmd.description,
@@ -107,19 +108,9 @@ const Commands = () => {
               platform: cmd.platform as "linux" | "windows" | "both",
               examples: cmd.examples || [],
               user_id: cmd.user_id,
-              created_at: cmd.created_at
+              created_at: cmd.created_at,
+              isPublished: cmd.isPublished
             }));
-            
-            // Combine sample commands with database commands, removing duplicates
-            commands = [...sampleCommands];
-            dbCommands.forEach(dbCmd => {
-              if (!commands.some(sampleCmd => sampleCmd.name === dbCmd.name)) {
-                commands.push(dbCmd);
-              }
-            });
-          } else {
-            // If no database commands, just use sample commands
-            commands = [...sampleCommands];
           }
         }
         
@@ -241,32 +232,23 @@ const Commands = () => {
 
   const handleAddCommand = async (newCommand: CommandInsert) => {
     try {
-      // Get the session to check if user is logged in
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) throw sessionError;
       
-      // Check if user is logged in
       if (!sessionData.session) {
-        // Close the dialog
         setIsDialogOpen(false);
-        
-        // Show toast notification
         toast({
           title: "Authentication Required",
           description: "Please sign in to add commands",
           variant: "destructive",
         });
-        
-        // Redirect to login page
         window.location.href = "/auth";
         return;
       }
       
-      // If logged in, proceed with adding the command
       const user_id = sessionData.session.user.id;
       
-      // Insert the new command
       const { error } = await supabase
         .from('commands')
         .insert([{
@@ -275,7 +257,8 @@ const Commands = () => {
           syntax: newCommand.syntax,
           platform: newCommand.platform,
           examples: newCommand.examples,
-          user_id: user_id
+          user_id: user_id,
+          isPublished: newCommand.isPublished || false
         }]);
       
       if (error) throw error;
@@ -288,27 +271,27 @@ const Commands = () => {
       // Refresh commands
       const { data, error: fetchError } = await supabase
         .from('commands')
-        .select('*');
+        .select('*')
+        .or(`isPublished.eq.true,user_id.eq.${user_id}`);
       
       if (fetchError) throw fetchError;
       
-      if (!data) {
-        return;
+      if (data) {
+        const transformedCommands: Command[] = data.map(cmd => ({
+          id: cmd.id,
+          name: cmd.name,
+          description: cmd.description,
+          syntax: cmd.syntax,
+          platform: cmd.platform as "linux" | "windows" | "both",
+          examples: cmd.examples || [],
+          user_id: cmd.user_id,
+          created_at: cmd.created_at,
+          isPublished: cmd.isPublished
+        }));
+        
+        setAllCommands(transformedCommands);
+        setFilteredCommands(transformedCommands);
       }
-      
-      const transformedCommands: Command[] = data.map(cmd => ({
-        id: cmd.id,
-        name: cmd.name,
-        description: cmd.description,
-        syntax: cmd.syntax,
-        platform: cmd.platform as "linux" | "windows" | "both",
-        examples: cmd.examples || [],
-        user_id: cmd.user_id,
-        created_at: cmd.created_at
-      }));
-      
-      setAllCommands(transformedCommands);
-      setFilteredCommands(transformedCommands);
       
     } catch (error) {
       console.error("Error adding command:", error);
@@ -357,7 +340,6 @@ const Commands = () => {
   const handleSubmitCommand = async (command: Command, type: string) => {
     try {
       if (type === "edit" && commandToEdit) {
-        // Update existing command
         const { error } = await supabase
           .from('commands')
           .update({
@@ -365,14 +347,14 @@ const Commands = () => {
             description: command.description,
             syntax: command.syntax,
             platform: command.platform,
-            examples: command.examples
+            examples: command.examples,
+            isPublished: command.isPublished
           })
           .eq('id', commandToEdit.id)
           .eq('user_id', currentUserId);
         
         if (error) throw error;
         
-        // Update the commands list
         const updatedCommands = allCommands.map(cmd => 
           cmd.id === commandToEdit.id ? { ...command, id: commandToEdit.id, user_id: currentUserId } : cmd
         );
@@ -384,7 +366,6 @@ const Commands = () => {
           description: "The command has been updated successfully",
         });
       } else {
-        // Add new command
         await handleAddCommand(command);
       }
       setCommandToEdit(null);
@@ -605,6 +586,8 @@ const Commands = () => {
                             showEditDelete={isLoggedIn && command.user_id === currentUserId && !showSavedCommands}
                             onEdit={() => handleEditCommand(command)}
                             onDelete={() => handleDeleteCommand(command.id)}
+                            isPublished={command.isPublished}
+                            user_id={command.user_id}
                           />
                         </div>
                       ))}

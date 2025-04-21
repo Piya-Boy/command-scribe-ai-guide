@@ -6,6 +6,7 @@ export interface Command {
   platform: "linux" | "windows" | "both";
   examples: string[];
   category?: string;
+  isPublished?: boolean;
 }
 
 export const sampleCommands: Command[] = [
@@ -20,7 +21,8 @@ export const sampleCommands: Command[] = [
       "nmap -p 1-100 192.168.1.1-254",
       "nmap -A scanme.nmap.org"
     ],
-    category: "network"
+    category: "network",
+    isPublished: true
   },
   {
     id: "2",
@@ -33,7 +35,8 @@ export const sampleCommands: Command[] = [
       "dir /s *.txt",
       "dir /b /s"
     ],
-    category: "filesystem"
+    category: "filesystem",
+    isPublished: true
   },
   {
     id: "3",
@@ -46,7 +49,8 @@ export const sampleCommands: Command[] = [
       "ls -lh /var/log",
       "ls --color=auto"
     ],
-    category: "filesystem"
+    category: "filesystem",
+    isPublished: true
   },
   {
     id: "4",
@@ -59,7 +63,8 @@ export const sampleCommands: Command[] = [
       "ping -c 4 192.168.1.1",
       "ping -t 192.168.1.1"
     ],
-    category: "network"
+    category: "network",
+    isPublished: true
   },
   {
     id: "5",
@@ -72,7 +77,8 @@ export const sampleCommands: Command[] = [
       "ipconfig /all",
       "ipconfig /renew"
     ],
-    category: "network"
+    category: "network",
+    isPublished: true
   },
   {
     id: "6",
@@ -85,6 +91,7 @@ export const sampleCommands: Command[] = [
       "ifconfig eth0",
       "ifconfig eth0 up"
     ],
-    category: "network"
+    category: "network",
+    isPublished: true
   }
 ];
