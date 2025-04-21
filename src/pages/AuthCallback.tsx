@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,46 +12,51 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // The hash contains the access token
+        // Handle the OAuth callback
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error during auth callback:', error);
-          setError(error.message);
+          console.error('Auth callback error:', error.message);
+          setError('Authentication failed. Please try again.');
           toast({
             title: "Authentication failed",
-            description: error.message,
+            description: "Unable to complete the authentication process.",
             variant: "destructive",
           });
           setTimeout(() => navigate('/auth', { replace: true }), 3000);
           return;
         }
-        
-        if (data?.session) {
-          // Successfully logged in, redirect to the home page
-          navigate('/', { replace: true });
-        } else {
-          // No session, redirect to auth page
-          setError("No session found");
+
+        if (!data?.session) {
+          setError('No session found');
           toast({
             title: "Authentication incomplete",
             description: "Please try signing in again.",
             variant: "destructive",
           });
           setTimeout(() => navigate('/auth', { replace: true }), 3000);
+          return;
         }
+
+        // Successfully authenticated
+        toast({
+          title: "Authentication successful",
+          description: "You have been signed in successfully.",
+        });
+        navigate('/', { replace: true });
       } catch (err) {
-        console.error('Error during auth callback:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        console.error('Unexpected error during auth callback:', err);
+        setError('An unexpected error occurred');
         toast({
           title: "Authentication error",
-          description: "An unexpected error occurred.",
+          description: "An unexpected error occurred during authentication.",
           variant: "destructive",
         });
         setTimeout(() => navigate('/auth', { replace: true }), 3000);
       }
     };
 
+    // Execute the callback handler
     handleAuthCallback();
   }, [navigate, toast]);
 
@@ -68,7 +72,7 @@ const AuthCallback = () => {
       ) : (
         <>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-center text-muted-foreground">Authenticating...</p>
+          <p className="mt-4 text-center text-muted-foreground">Completing authentication...</p>
         </>
       )}
     </div>
