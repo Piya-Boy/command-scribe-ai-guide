@@ -11,33 +11,54 @@ import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from 'react-error-boundary';
+import { performanceMonitor } from './lib/performanceMonitor';
+import { useEffect } from 'react';
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/commands" element={<Commands />} />
-            <Route path="/ai-assistant" element={
-              <ProtectedRoute>
-                <AIAssistant />
-              </ProtectedRoute>
-            } />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+function ErrorFallback({ error }: { error: Error }) {
+  return (
+    <div role="alert" className="p-4 bg-red-100 rounded-lg">
+      <p>Something went wrong:</p>
+      <pre className="text-red-700">{error.message}</pre>
+    </div>
+  );
+}
+
+const App = () => {
+  useEffect(() => {
+    const startTime = performance.now();
+    performanceMonitor.trackLoadTime(startTime);
+  }, []);
+
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/commands" element={<Commands />} />
+                <Route path="/ai-assistant" element={
+                  <ProtectedRoute>
+                    <AIAssistant />
+                  </ProtectedRoute>
+                } />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;
