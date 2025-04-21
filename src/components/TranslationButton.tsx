@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Languages } from "lucide-react";
+import { Languages, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getAIResponse } from "@/lib/aiService";
 
@@ -51,7 +51,11 @@ export const TranslationButton = ({
       className="h-8 w-8"
       title={isTranslated ? "Show original text" : "Translate to Thai"}
     >
-      <Languages className={`h-4 w-4 ${isTranslated ? 'text-primary' : ''}`} />
+      {isTranslating ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Languages className={`h-4 w-4 ${isTranslated ? 'text-primary' : ''}`} />
+      )}
     </Button>
   );
 }; 
