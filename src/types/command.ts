@@ -9,6 +9,7 @@ export interface Command {
   created_at?: string;
   user_id?: string;
   isPublished?: boolean;
+  tags?: string[];
 }
 
 // This is a type used for inserting new commands

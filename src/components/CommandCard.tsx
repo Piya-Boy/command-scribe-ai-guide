@@ -9,6 +9,7 @@ import { Command} from "@/types/command";
 import { FaBookmark } from "react-icons/fa";
 import AuthRequiredDialog from "./AuthRequiredDialog";
 import { TranslationButton } from "./TranslationButton";
+import { motion } from "framer-motion";
 
 // Make examples optional in the props to match how it's being used
 interface CommandProps {
@@ -49,6 +50,7 @@ const CommandCard = ({
   const [copiedExampleIndex, setCopiedExampleIndex] = useState<number | null>(null);
   const [translatedDescription, setTranslatedDescription] = useState<string | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [localIsPublished, setLocalIsPublished] = useState(isPublished);
   const { toast } = useToast();
   
   
@@ -59,8 +61,8 @@ const CommandCard = ({
   };
 
   const publishedColor = {
-    unpublished: "bg-red-500 text-red-900 dark:bg-red-500 dark:text-red-900",
-    published: "bg-yellow-500 text-yellow-900 dark:bg-yellow-500 dark:text-yellow-900"
+    unpublished: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    published: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
   };
 
   // Add effect to get current user ID
@@ -141,37 +143,41 @@ const CommandCard = ({
 
   // Set up real-time subscription for command changes
   useEffect(() => {
-    if (id) {
-      const subscription = supabase
-        .channel('command-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'commands',
-            filter: `id=eq.${id}`
-          },
-          (payload) => {
-            if (payload.eventType === 'UPDATE') {
-              const updatedCommand = payload.new as Command;
-              // Update the component's state with the new command data
-              // Note: In a real implementation, you would need to lift this state up
-              // to the parent component to update the command data
-              toast({
-                title: "Command Updated",
-                description: "The command has been updated by another user.",
-              });
-            }
-          }
-        )
-        .subscribe();
+    if (!id) return;
 
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
+    const subscription = supabase
+      .channel(`command-${id}-changes`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'commands',
+          filter: `id=eq.${id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const updatedCommand = payload.new as Command;
+            // Update local state
+            setLocalIsPublished(updatedCommand.isPublished);
+            toast({
+              title: "Command Updated",
+              description: `Command is now ${updatedCommand.isPublished ? 'published' : 'unpublished'}`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [id, toast]);
+
+  // Update local state when prop changes
+  useEffect(() => {
+    setLocalIsPublished(isPublished);
+  }, [isPublished]);
 
   const handleSaveCommand = async () => {
     setIsSaving(true);
@@ -272,50 +278,58 @@ const CommandCard = ({
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-xl">{name}</CardTitle>
-            <CardDescription className="mt-2">
-              {translatedDescription || description}
-            </CardDescription>
-          </div>
-          <div className="flex gap-2 mt-2">
-          <Badge variant="outline" className={platformColor[platform]}>
-            {platform.charAt(0).toUpperCase() + platform.slice(1)}
-          </Badge>
-          {category && (
-            <Badge variant="secondary">
-                  {category}
-            </Badge>
-          )}
-          {/* TODO: Add published badge */}
-          {isPublished && user_id === currentUserId && (
-            <Badge variant="secondary" className={publishedColor.published}>
-              Published
-            </Badge>
-          )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <h4 className="text-sm font-medium mb-1">Syntax</h4>
-            <code className="bg-muted p-2 rounded-md block">{syntax}</code>
-          </div>
-          {examples.length > 0 && (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
             <div>
-              <h4 className="text-sm font-medium mb-1">Examples</h4>
+              <CardTitle className="text-xl">{name}</CardTitle>
+              <CardDescription className="mt-1">
+                {translatedDescription || description}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className={platformColor[platform]}>
+                {platform}
+              </Badge>
+              {!isSample && currentUserId && user_id && currentUserId === user_id && (
+                <Badge className={publishedColor[localIsPublished ? "published" : "unpublished"]}>
+                  {localIsPublished ? "Published" : "Unpublished"}
+                </Badge>
+              )}
+              
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pb-2">
+          <div className="bg-muted p-3 rounded-md mb-4">
+            <code className="text-sm">{syntax}</code>
+          </div>
+          
+          {examples.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium mb-2">Examples:</h4>
               <div className="space-y-2">
                 {examples.map((example, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <code className="bg-muted p-2 rounded-md flex-1">{example}</code>
+                  <motion.div 
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="flex items-center justify-between bg-muted p-2 rounded-md"
+                  >
+                    <code className="text-sm">{example}</code>
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
                       onClick={() => handleCopyExample(example, index)}
+                      className="h-8 w-8 p-0"
                     >
                       {copiedExampleIndex === index ? (
                         <Check className="h-4 w-4 text-green-500" />
@@ -323,62 +337,83 @@ const CommandCard = ({
                         <Copy className="h-4 w-4" />
                       )}
                     </Button>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
           )}
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <div className="flex gap-2">
-        <TranslationButton
-          text={description}
-          onTranslationComplete={handleTranslationComplete}
-          messageId={`command-${id || 'new'}`}
-          isTranslated={!!translatedDescription}
-        />
-        </div>
-        <div className="flex gap-2">
-            {!isSample && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSaveCommand}
-                disabled={isSaving}
-              >
-                {isSaved ? (
-                  <FaBookmark className="h-4 w-4 text-yellow-500" />
-                ) : (
-                  <Bookmark className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-            {showEditDelete && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onEdit}
+          
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <TranslationButton 
+                text={description} 
+                onTranslationComplete={handleTranslationComplete}
+                messageId={`command-${id || 'new'}`}
+                isTranslated={!!translatedDescription}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {!isSample && (
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                 >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onDelete}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSaveCommand}
+                    disabled={isSaving}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isSaved ? (
+                      <FaBookmark className="h-4 w-4 text-yellow-500" />
+                    ) : (
+                      <Bookmark className="h-4 w-4" />
+                    )}
+                  </Button>
+                </motion.div>
+              )}
+              
+              {showEditDelete && (
+                <>
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onEdit}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </motion.div>
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onDelete}
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </motion.div>
+                </>
+              )}
+            </div>
           </div>
-      </CardFooter>
+        </CardContent>
+      </Card>
+      
       <AuthRequiredDialog
         open={showAuthDialog}
         onOpenChange={setShowAuthDialog}
       />
-    </Card>
+    </motion.div>
   );
 };
 

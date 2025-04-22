@@ -49,6 +49,8 @@ export type Database = {
           syntax: string
           user_id: string | null
           isPublished: boolean
+          category: string | null
+          tags: string[] | null
         }
         Insert: {
           created_at?: string
@@ -60,6 +62,8 @@ export type Database = {
           syntax: string
           user_id?: string | null
           isPublished?: boolean
+          category?: string | null
+          tags?: string[] | null
         }
         Update: {
           created_at?: string
@@ -71,6 +75,8 @@ export type Database = {
           syntax?: string
           user_id?: string | null
           isPublished?: boolean
+          category?: string | null
+          tags?: string[] | null
         }
         Relationships: []
       }

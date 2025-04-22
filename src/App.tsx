@@ -8,7 +8,7 @@ import Commands from "./pages/Commands";
 import AIAssistant from "./pages/AIAssistant";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
-import NotFound from "./pages/NotFound";
+import ErrorPage from "./pages/ErrorPage";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from 'react-error-boundary';
@@ -18,12 +18,7 @@ import { useEffect } from 'react';
 const queryClient = new QueryClient();
 
 function ErrorFallback({ error }: { error: Error }) {
-  return (
-    <div role="alert" className="p-4 bg-red-100 rounded-lg">
-      <p>Something went wrong:</p>
-      <pre className="text-red-700">{error.message}</pre>
-    </div>
-  );
+  return <ErrorPage code="500" message={error.message} />;
 }
 
 const App = () => {
@@ -51,7 +46,7 @@ const App = () => {
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
+                <Route path="*" element={<ErrorPage code="404" />} />
               </Routes>
             </BrowserRouter>
           </TooltipProvider>

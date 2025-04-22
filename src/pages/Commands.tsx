@@ -17,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 
 const Commands = () => {
   const [filteredCommands, setFilteredCommands] = useState<Command[]>([]);
@@ -69,15 +70,16 @@ const Commands = () => {
         let commands: Command[] = [];
 
         if (isLoggedIn && currentUserId) {
-          // If logged in, fetch published commands and user's own commands
+          // If logged in, fetch only user's commands
           const { data, error } = await supabase
             .from('commands')
             .select('*')
-            .or(`isPublished.eq.true,user_id.eq.${currentUserId}`);
+            .eq('user_id', currentUserId);
           
           if (error) throw error;
           
           if (data) {
+            // Transform user's commands
             commands = data.map(cmd => ({
               id: cmd.id,
               name: cmd.name,
@@ -86,20 +88,19 @@ const Commands = () => {
               platform: cmd.platform as "linux" | "windows" | "both",
               examples: cmd.examples || [],
               user_id: cmd.user_id,
-              created_at: cmd.created_at,
-              isPublished: cmd.isPublished
+              created_at: cmd.created_at
             }));
           }
         } else {
-          // If not logged in, fetch only published commands
+          // If not logged in, fetch all commands
           const { data, error } = await supabase
             .from('commands')
-            .select('*')
-            .eq('isPublished', true);
+            .select('*');
           
           if (error) throw error;
           
           if (data) {
+            // Transform all commands
             commands = data.map(cmd => ({
               id: cmd.id,
               name: cmd.name,
@@ -108,8 +109,7 @@ const Commands = () => {
               platform: cmd.platform as "linux" | "windows" | "both",
               examples: cmd.examples || [],
               user_id: cmd.user_id,
-              created_at: cmd.created_at,
-              isPublished: cmd.isPublished
+              created_at: cmd.created_at
             }));
           }
         }
@@ -232,23 +232,32 @@ const Commands = () => {
 
   const handleAddCommand = async (newCommand: CommandInsert) => {
     try {
+      // Get the session to check if user is logged in
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) throw sessionError;
       
+      // Check if user is logged in
       if (!sessionData.session) {
+        // Close the dialog
         setIsDialogOpen(false);
+        
+        // Show toast notification
         toast({
           title: "Authentication Required",
           description: "Please sign in to add commands",
           variant: "destructive",
         });
+        
+        // Redirect to login page
         window.location.href = "/auth";
         return;
       }
       
+      // If logged in, proceed with adding the command
       const user_id = sessionData.session.user.id;
       
+      // Insert the new command
       const { error } = await supabase
         .from('commands')
         .insert([{
@@ -257,8 +266,7 @@ const Commands = () => {
           syntax: newCommand.syntax,
           platform: newCommand.platform,
           examples: newCommand.examples,
-          user_id: user_id,
-          isPublished: newCommand.isPublished || false
+          user_id: user_id
         }]);
       
       if (error) throw error;
@@ -271,27 +279,27 @@ const Commands = () => {
       // Refresh commands
       const { data, error: fetchError } = await supabase
         .from('commands')
-        .select('*')
-        .or(`isPublished.eq.true,user_id.eq.${user_id}`);
+        .select('*');
       
       if (fetchError) throw fetchError;
       
-      if (data) {
-        const transformedCommands: Command[] = data.map(cmd => ({
-          id: cmd.id,
-          name: cmd.name,
-          description: cmd.description,
-          syntax: cmd.syntax,
-          platform: cmd.platform as "linux" | "windows" | "both",
-          examples: cmd.examples || [],
-          user_id: cmd.user_id,
-          created_at: cmd.created_at,
-          isPublished: cmd.isPublished
-        }));
-        
-        setAllCommands(transformedCommands);
-        setFilteredCommands(transformedCommands);
+      if (!data) {
+        return;
       }
+      
+      const transformedCommands: Command[] = data.map(cmd => ({
+        id: cmd.id,
+        name: cmd.name,
+        description: cmd.description,
+        syntax: cmd.syntax,
+        platform: cmd.platform as "linux" | "windows" | "both",
+        examples: cmd.examples || [],
+        user_id: cmd.user_id,
+        created_at: cmd.created_at
+      }));
+      
+      setAllCommands(transformedCommands);
+      setFilteredCommands(transformedCommands);
       
     } catch (error) {
       console.error("Error adding command:", error);
@@ -340,6 +348,7 @@ const Commands = () => {
   const handleSubmitCommand = async (command: Command, type: string) => {
     try {
       if (type === "edit" && commandToEdit) {
+        // Update existing command
         const { error } = await supabase
           .from('commands')
           .update({
@@ -347,14 +356,14 @@ const Commands = () => {
             description: command.description,
             syntax: command.syntax,
             platform: command.platform,
-            examples: command.examples,
-            isPublished: command.isPublished
+            examples: command.examples
           })
           .eq('id', commandToEdit.id)
           .eq('user_id', currentUserId);
         
         if (error) throw error;
         
+        // Update the commands list
         const updatedCommands = allCommands.map(cmd => 
           cmd.id === commandToEdit.id ? { ...command, id: commandToEdit.id, user_id: currentUserId } : cmd
         );
@@ -366,6 +375,7 @@ const Commands = () => {
           description: "The command has been updated successfully",
         });
       } else {
+        // Add new command
         await handleAddCommand(command);
       }
       setCommandToEdit(null);
@@ -475,9 +485,19 @@ const Commands = () => {
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-1">
-        <section className="py-12 bg-gradient-to-b from-background to-muted">
+        <motion.section 
+          className="py-12 bg-gradient-to-b from-background to-muted"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="container px-4 md:px-6">
-            <div className="flex justify-between items-center mb-6">
+            <motion.div 
+              className="flex justify-between items-center mb-6"
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+            >
               <h1 className="text-3xl font-bold">
                 {showSavedCommands ? "Saved Commands" : (isLoggedIn ? "My Commands" : "Command Library")}
               </h1>
@@ -485,13 +505,18 @@ const Commands = () => {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button onClick={() => {
-                        setCommandToEdit(null);
-                        setIsDialogOpen(true);
-                      }}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Command
-                      </Button>
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Button onClick={() => {
+                          setCommandToEdit(null);
+                          setIsDialogOpen(true);
+                        }}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Command
+                        </Button>
+                      </motion.div>
                     </TooltipTrigger>
                     <TooltipContent>
                       Add a new command to the library
@@ -499,14 +524,24 @@ const Commands = () => {
                   </Tooltip>
                 </TooltipProvider>
               )}
-            </div>
+            </motion.div>
             
-            <div className="mb-8">
+            <motion.div 
+              className="mb-8"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
               <SearchBar onSearch={handleSearch} />
-            </div>
+            </motion.div>
 
             <div className="flex flex-col md:flex-row gap-6 mb-8">
-              <div className="w-full md:w-64 bg-card rounded-lg p-4 shadow-sm">
+              <motion.div 
+                className="w-full md:w-64 bg-card rounded-lg p-4 shadow-sm"
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+              >
                 <div className="flex items-center mb-4">
                   <Filter className="h-5 w-5 mr-2 text-muted-foreground" />
                   <h2 className="text-lg font-medium">Filters</h2>
@@ -515,22 +550,33 @@ const Commands = () => {
                 <div className="mb-6">
                   <h3 className="text-sm font-medium mb-2">Platform</h3>
                   <div className="flex flex-wrap gap-2">
-                    {platforms.map(platform => (
-                      <Button
+                    {platforms.map((platform, index) => (
+                      <motion.div
                         key={platform}
-                        variant={activePlatform === platform ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handlePlatformFilter(platform)}
-                        className="capitalize"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 + index * 0.1 }}
                       >
-                        {platform}
-                      </Button>
+                        <Button
+                          variant={activePlatform === platform ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePlatformFilter(platform)}
+                          className="capitalize"
+                        >
+                          {platform}
+                        </Button>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="flex-1">
+              <motion.div 
+                className="flex-1"
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.6, duration: 0.5 }}
+              >
                 <div className="flex justify-between items-center mb-4">
                   <p className="text-muted-foreground">
                     {showSavedCommands 
@@ -540,96 +586,147 @@ const Commands = () => {
                         : `Showing ${filteredCommands.length} commands`}
                   </p>
                   {isLoggedIn && (
-                    <Button 
-                      variant={showSavedCommands ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => {
-                        setShowSavedCommands(!showSavedCommands);
-                        setDisplayedCommands(4);
-                      }}
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <BookmarkPlus className="h-4 w-4 mr-2" />
-                      {showSavedCommands ? "Show All Commands" : "Show Saved Commands"}
-                    </Button>
+                      <Button 
+                        variant={showSavedCommands ? "default" : "outline"} 
+                        size="sm"
+                        onClick={() => {
+                          setShowSavedCommands(!showSavedCommands);
+                          setDisplayedCommands(4);
+                        }}
+                      >
+                        <BookmarkPlus className="h-4 w-4 mr-2" />
+                        {showSavedCommands ? "Show All Commands" : "Show Saved Commands"}
+                      </Button>
+                    </motion.div>
                   )}
                 </div>
 
                 <div className="grid gap-6">
-                  {isLoading ? (
-                    Array(4).fill(0).map((_, i) => (
-                      <div key={i} className="w-full border rounded-lg p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <Skeleton className="h-6 w-40 mb-2" />
-                            <Skeleton className="h-4 w-60" />
-                          </div>
-                          <Skeleton className="h-6 w-20" />
-                        </div>
-                        <Skeleton className="h-16 w-full mb-4" />
-                        <Skeleton className="h-12 w-full" />
-                      </div>
-                    ))
-                  ) : (showSavedCommands ? savedCommands : filteredCommands).length > 0 ? (
-                    <>
-                      {(showSavedCommands ? savedCommands : filteredCommands)
-                        .slice(0, displayedCommands)
-                        .map((command) => (
-                        <div key={command.id} className="relative">
-                          <CommandCard
-                            id={command.id}
-                            name={command.name}
-                            description={command.description}
-                            syntax={command.syntax}
-                            platform={command.platform}
-                            examples={command.examples}
-                            isSample={!command.user_id}
-                            showEditDelete={isLoggedIn && command.user_id === currentUserId && !showSavedCommands}
-                            onEdit={() => handleEditCommand(command)}
-                            onDelete={() => handleDeleteCommand(command.id)}
-                            isPublished={command.isPublished}
-                            user_id={command.user_id}
-                          />
-                        </div>
-                      ))}
-                      {displayedCommands < (showSavedCommands ? savedCommands : filteredCommands).length && (
-                        <div className="col-span-full flex justify-center mt-6">
-                          <Button 
-                            variant="outline" 
-                            onClick={handleLoadMore}
-                            className="w-full sm:w-auto"
+                  <AnimatePresence mode="wait">
+                    {isLoading ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {Array(4).fill(0).map((_, i) => (
+                          <motion.div 
+                            key={i} 
+                            className="w-full border rounded-lg p-6 mb-6"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.1 }}
                           >
-                            Load More Commands
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground col-span-full">
-                      <p>
-                        {showSavedCommands 
-                          ? "You haven't saved any commands yet"
-                          : "No commands found matching your criteria."}
-                      </p>
-                      {!showSavedCommands && (
-                        <Button 
-                          variant="link" 
-                          onClick={() => {
-                            setActiveCategory(null);
-                            setActivePlatform(null);
-                            setFilteredCommands(allCommands);
-                            setDisplayedCommands(4);
-                          }}
-                        >
-                          Clear all filters
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                            <div className="flex justify-between items-start mb-4">
+                              <div>
+                                <Skeleton className="h-6 w-40 mb-2" />
+                                <Skeleton className="h-4 w-60" />
+                              </div>
+                              <Skeleton className="h-6 w-20" />
+                            </div>
+                            <Skeleton className="h-16 w-full mb-4" />
+                            <Skeleton className="h-12 w-full" />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    ) : (showSavedCommands ? savedCommands : filteredCommands).length > 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {(showSavedCommands ? savedCommands : filteredCommands)
+                          .slice(0, displayedCommands)
+                          .map((command, index) => (
+                          <motion.div 
+                            key={command.id} 
+                            className="relative"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            <CommandCard
+                              id={command.id}
+                              name={command.name}
+                              description={command.description}
+                              syntax={command.syntax}
+                              platform={command.platform}
+                              examples={command.examples}
+                              isSample={!command.user_id}
+                              showEditDelete={isLoggedIn && command.user_id === currentUserId && !showSavedCommands}
+                              onEdit={() => handleEditCommand(command)}
+                              onDelete={() => handleDeleteCommand(command.id)}
+                              isPublished={command.isPublished}
+                              user_id={command.user_id}
+                            />
+                          </motion.div>
+                        ))}
+                        {displayedCommands < (showSavedCommands ? savedCommands : filteredCommands).length && (
+                          <motion.div 
+                            className="col-span-full flex justify-center mt-6"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5 }}
+                          >
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <Button 
+                                variant="outline" 
+                                onClick={handleLoadMore}
+                                className="w-full sm:w-auto"
+                              >
+                                Load More Commands
+                              </Button>
+                            </motion.div>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    ) : (
+                      <motion.div 
+                        className="text-center py-12 text-muted-foreground col-span-full"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <p>
+                          {showSavedCommands 
+                            ? "You haven't saved any commands yet"
+                            : "No commands found matching your criteria."}
+                        </p>
+                        {!showSavedCommands && (
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <Button 
+                              variant="link" 
+                              onClick={() => {
+                                setActiveCategory(null);
+                                setActivePlatform(null);
+                                setFilteredCommands(allCommands);
+                                setDisplayedCommands(4);
+                              }}
+                            >
+                              Clear all filters
+                            </Button>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </div>
+              </motion.div>
             </div>
           </div>
-        </section>
+        </motion.section>
       </main>
       
       <NewCommandDialog
