@@ -2,14 +2,16 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bookmark, Check, Trash2, Edit, Copy, Tag as TagIcon } from "lucide-react";
+import { Bookmark, Check, Trash2, Edit, Copy, Tag as TagIcon, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Command} from "@/types/command";
 import { FaBookmark } from "react-icons/fa";
 import AuthRequiredDialog from "./AuthRequiredDialog";
 import { TranslationButton } from "./TranslationButton";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import CommandDetailsDialog from "./CommandDetailsDialog";
 
 // Make examples optional in the props to match how it's being used
 interface CommandProps {
@@ -51,6 +53,7 @@ const CommandCard = ({
   const [translatedDescription, setTranslatedDescription] = useState<string | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [localIsPublished, setLocalIsPublished] = useState(isPublished);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const { toast } = useToast();
   
   
@@ -278,142 +281,180 @@ const CommandCard = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-    >
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-xl">{name}</CardTitle>
-              <CardDescription className="mt-1">
-                {translatedDescription || description}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={platformColor[platform]}>
-                {platform}
-              </Badge>
-              {!isSample && currentUserId && user_id && currentUserId === user_id && (
-                <Badge className={publishedColor[localIsPublished ? "published" : "unpublished"]}>
-                  {localIsPublished ? "Published" : "Unpublished"}
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowDetailsDialog(true)}
+        className="cursor-pointer"
+      >
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-xl">{name}</CardTitle>
+                <CardDescription className="mt-1">
+                  {translatedDescription || description}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className={platformColor[platform]}>
+                  {platform}
                 </Badge>
-              )}
-              
+                {!isSample && currentUserId && user_id && currentUserId === user_id && (
+                  <Badge className={publishedColor[localIsPublished ? "published" : "unpublished"]}>
+                    {localIsPublished ? "Published" : "Unpublished"}
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pb-2">
-          <div className="bg-muted p-3 rounded-md mb-4">
-            <code className="text-sm">{syntax}</code>
-          </div>
-          
-          {examples.length > 0 && (
-            <div className="mb-4">
-              <h4 className="text-sm font-medium mb-2">Examples:</h4>
-              <div className="space-y-2">
-                {examples.map((example, index) => (
-                  <motion.div 
-                    key={index}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between bg-muted p-2 rounded-md"
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="bg-muted p-3 rounded-md mb-4">
+              <code className="text-sm">{syntax}</code>
+            </div>
+            
+            {examples.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium mb-2">Examples:</h4>
+                <div className="space-y-2">
+                  {examples.map((example, index) => (
+                    <motion.div 
+                      key={index}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="flex items-center justify-between bg-muted p-2 rounded-md"
+                    >
+                      <code className="text-sm">{example}</code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyExample(example, index);
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        {copiedExampleIndex === index ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <TranslationButton 
+                  text={description} 
+                  onTranslationComplete={handleTranslationComplete}
+                  messageId={`command-${id || 'new'}`}
+                  isTranslated={!!translatedDescription}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                {!isSample && (
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
                   >
-                    <code className="text-sm">{example}</code>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleCopyExample(example, index)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSaveCommand();
+                      }}
+                      disabled={isSaving}
                       className="h-8 w-8 p-0"
                     >
-                      {copiedExampleIndex === index ? (
-                        <Check className="h-4 w-4 text-green-500" />
+                      {isSaved ? (
+                        <FaBookmark className="h-4 w-4 text-yellow-500" />
                       ) : (
-                        <Copy className="h-4 w-4" />
+                        <Bookmark className="h-4 w-4" />
                       )}
                     </Button>
                   </motion.div>
-                ))}
+                )}
+                
+                {showEditDelete && (
+                  <>
+                    <motion.div
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit?.();
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                    <motion.div
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete?.();
+                        }}
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  </>
+                )}
               </div>
             </div>
-          )}
-          
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <TranslationButton 
-                text={description} 
-                onTranslationComplete={handleTranslationComplete}
-                messageId={`command-${id || 'new'}`}
-                isTranslated={!!translatedDescription}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              {!isSample && (
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSaveCommand}
-                    disabled={isSaving}
-                    className="h-8 w-8 p-0"
-                  >
-                    {isSaved ? (
-                      <FaBookmark className="h-4 w-4 text-yellow-500" />
-                    ) : (
-                      <Bookmark className="h-4 w-4" />
-                    )}
-                  </Button>
-                </motion.div>
-              )}
-              
-              {showEditDelete && (
-                <>
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onEdit}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onDelete}
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
-                </>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
       
       <AuthRequiredDialog
         open={showAuthDialog}
         onOpenChange={setShowAuthDialog}
       />
-    </motion.div>
+
+      <CommandDetailsDialog
+        open={showDetailsDialog}
+        onOpenChange={setShowDetailsDialog}
+        name={name}
+        description={description}
+        syntax={syntax}
+        platform={platform}
+        examples={examples}
+        isSample={isSample}
+        showEditDelete={showEditDelete}
+        isPublished={localIsPublished}
+        isSaved={isSaved}
+        isSaving={isSaving}
+        translatedDescription={translatedDescription}
+        onSave={handleSaveCommand}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onCopyExample={handleCopyExample}
+        onTranslationComplete={handleTranslationComplete}
+        copiedExampleIndex={copiedExampleIndex}
+        commandId={id}
+      />
+    </>
   );
 };
 
