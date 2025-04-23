@@ -257,7 +257,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Command description"
+                    placeholder="e.g. List files in the current directory"
                     rows={3}
                   />
                 </motion.div>
@@ -273,7 +273,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
                     id="syntax"
                     value={syntax}
                     onChange={(e) => setSyntax(e.target.value)}
-                    placeholder="Command syntax"
+                    placeholder="e.g. ls -l"
                   />
                 </motion.div>
                 
@@ -316,7 +316,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
                         <Input
                           value={example}
                           onChange={(e) => handleExampleChange(index, e.target.value)}
-                          placeholder={`Example ${index + 1}`}
+                          placeholder={`e.g. Example ${index + 1}`}
                           className="flex-1"
                         />
                         {examples.length > 1 && (
