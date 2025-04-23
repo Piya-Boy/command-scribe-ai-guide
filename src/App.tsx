@@ -12,19 +12,40 @@ import ErrorPage from "./pages/ErrorPage";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from 'react-error-boundary';
-import { performanceMonitor } from './lib/performanceMonitor';
+import errorMonitoring from './lib/errorMonitoring';
+import performanceMonitoring from './lib/performanceMonitoring';
 import { useEffect } from 'react';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
 
 function ErrorFallback({ error }: { error: Error }) {
+  errorMonitoring.logError(error);
   return <ErrorPage code="500" message={error.message} />;
 }
 
 const App = () => {
   useEffect(() => {
+    // Initialize monitoring
+    errorMonitoring.init();
+    performanceMonitoring.init();
+
+    // Track initial load time
     const startTime = performance.now();
-    performanceMonitor.trackLoadTime(startTime);
+    performanceMonitoring.trackLoadTime();
+
+    return () => {
+      // Cleanup if needed
+    };
   }, []);
 
   return (

@@ -374,6 +374,7 @@ const Index = () => {
                       .slice(0, displayedCommands)
                       .map((command) => (
                         <CommandCard
+                          key={command.id}
                           id={command.id}
                           name={command.name}
                           description={command.description}

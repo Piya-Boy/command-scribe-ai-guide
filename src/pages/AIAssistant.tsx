@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Copy, RefreshCw, Edit, Check, X, Languages } from "lucide-react";
-import { getAIResponse } from "@/lib/aiService";
+import { getAIResponse, getAIResponseWithRetry } from "@/lib/aiService";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import AuthRequiredDialog from "@/components/AuthRequiredDialog";
@@ -20,6 +20,9 @@ interface Message {
   translatedText?: string;
 }
 
+const MAX_MESSAGES = 50;
+const MESSAGES_PER_PAGE = 20;
+
 const AIAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -29,6 +32,7 @@ const AIAssistant = () => {
       timestamp: new Date(),
     },
   ]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
@@ -36,6 +40,19 @@ const AIAssistant = () => {
   const [editedText, setEditedText] = useState<Record<string, string>>({});
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState<Record<string, boolean>>({});
+
+  // Cleanup old messages
+  useEffect(() => {
+    if (messages.length > MAX_MESSAGES) {
+      setMessages(prev => prev.slice(-MAX_MESSAGES));
+    }
+  }, [messages]);
+
+  // Load messages by page
+  const displayedMessages = useMemo(() => {
+    const start = (currentPage - 1) * MESSAGES_PER_PAGE;
+    return messages.slice(start, start + MESSAGES_PER_PAGE);
+  }, [messages, currentPage]);
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;
@@ -53,8 +70,8 @@ const AIAssistant = () => {
     setIsLoading(true);
 
     try {
-      // Get AI response
-      const aiResponse = await getAIResponse(input);
+      // Get AI response with retry
+      const aiResponse = await getAIResponseWithRetry(input);
 
       // Add assistant message
       const assistantMessage: Message = {
@@ -65,9 +82,9 @@ const AIAssistant = () => {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      setCurrentPage(Math.ceil((messages.length + 2) / MESSAGES_PER_PAGE));
     } catch (error) {
       console.error("Error getting AI response:", error);
-      // Add error message
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         sender: "assistant",
@@ -147,7 +164,7 @@ const AIAssistant = () => {
             <h1 className="text-3xl font-bold mb-6">AI Command Assistant</h1>
             <div className="flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
               <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[500px] max-h-[500px]">
-                {messages.map((message, index) => (
+                {displayedMessages.map((message, index) => (
                   <div
                     key={message.id}
                     className={`flex ${

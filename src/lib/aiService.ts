@@ -12,7 +12,28 @@ interface GPTResponse {
   error?: string;
 }
 
-export async function getAIResponse(userMessage: string): Promise<GPTResponse> {
+const MAX_RETRIES = 3;
+const TIMEOUT = 10000; // 10 seconds
+
+export async function getAIResponseWithRetry(userMessage: string): Promise<GPTResponse> {
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+      const response = await getAIResponse(userMessage, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      return response;
+
+    } catch (error) {
+      if (i === MAX_RETRIES - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+export async function getAIResponse(userMessage: string, options?: { signal?: AbortSignal }): Promise<GPTResponse> {
   try {
     // Get and validate the decrypted API key
     const apiKey = getApiKey();
@@ -32,7 +53,7 @@ export async function getAIResponse(userMessage: string): Promise<GPTResponse> {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.0-flash",
       generationConfig: {
-        temperature: 0.3, // Lower temperature for more focused responses
+        temperature: 0.3,
         topP: 0.8,
         topK: 40,
       },
@@ -56,50 +77,19 @@ export async function getAIResponse(userMessage: string): Promise<GPTResponse> {
       ],
     });
 
-    // Call Gemini API with the correct format
-    const chat = model.startChat({
-      history: [
-        {
-          role: "user",
-          parts: [{ text: `You are an expert command line assistant specializing in both Linux and Windows commands. 
-Your responses should always follow this structured format when explaining commands:
-
-- **Name:** 
-    [command name]
-- **Description:** 
-    [clear, concise description of what the command does]
-
-Guidelines for your responses:
-1. Be precise and accurate with command syntax
-2. Provide real-world, practical examples
-3. Include common use cases and best practices
-4. Mention any important warnings or considerations
-5. For complex commands, break down the examples
-6. Always verify platform compatibility
-
-For non-command queries, provide clear, concise, and accurate information focused on practical solutions.` }],
-        },
-      ],
-    });
-
-    const result = await chat.sendMessage(userMessage);
+    const result = await model.generateContent(userMessage, { signal: options?.signal });
     const response = await result.response;
-    const responseText = response.text() || "Sorry, unable to generate a response";
-
-    // Parse the response to extract command information
-    const suggestedCommand = parseCommandFromResponse(responseText);
+    const text = response.text();
 
     return {
-      text: responseText,
-      suggestedCommand,
+      text,
     };
   } catch (error) {
     console.error('Error getting AI response:', error);
     
-    // Handle general errors
     if (error instanceof Error) {
       if (error.message.includes('API key')) {
-        removeApiKey(); // Remove the invalid key
+        removeApiKey();
         toast.error("Invalid API Key", {
           description: "Please set up a new API Key",
         });

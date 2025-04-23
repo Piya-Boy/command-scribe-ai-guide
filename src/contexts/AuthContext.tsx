@@ -61,7 +61,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (data.session) {
         setSession(data.session);
         setUser(data.session.user);
-        
       }
     } catch (error) {
       console.error('Error signing in:', error);
@@ -96,7 +95,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(data.session);
         setUser(data.session.user);
       }
-
     } catch (error) {
       console.error('Error signing up:', error);
       toast({
@@ -126,7 +124,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error(`Error signing in with ${provider}:`, error);
       toast({
         title: `${provider} sign in failed`,
-        description: error instanceof Error ? error.message : "Authentication failed",
+        description: "Authentication failed",
         variant: "destructive",
       });
       throw error;
@@ -144,12 +142,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setSession(null);
       setUser(null);
-      
     } catch (error) {
       console.error('Error signing out:', error);
       toast({
         title: "Sign out failed",
-        description: error instanceof Error ? error.message : "Failed to sign out",
+        description: "Failed to sign out",
         variant: "destructive",
       });
       throw error;

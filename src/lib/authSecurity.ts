@@ -2,13 +2,20 @@ import { createHash, randomBytes } from 'crypto';
 import { sign, verify } from 'jsonwebtoken';
 import { promisify } from 'util';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ogcp';
-const SALT_ROUNDS = 10;
+// Get JWT secret from environment variable
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be at least 32 characters long');
+}
+
+const SALT_ROUNDS = 12;
+const TOKEN_EXPIRY = '1h';
+const REFRESH_TOKEN_EXPIRY = '7d';
 
 export class AuthSecurity {
   static async hashPassword(password: string): Promise<string> {
-    const salt = randomBytes(16).toString('hex');
-    const hash = createHash('sha256')
+    const salt = randomBytes(32).toString('hex');
+    const hash = createHash('sha512')
       .update(password + salt)
       .digest('hex');
     return `${salt}:${hash}`;
@@ -16,23 +23,46 @@ export class AuthSecurity {
 
   static async verifyPassword(password: string, storedHash: string): Promise<boolean> {
     const [salt, hash] = storedHash.split(':');
-    const verifyHash = createHash('sha256')
+    const verifyHash = createHash('sha512')
       .update(password + salt)
       .digest('hex');
     return hash === verifyHash;
   }
 
-  static generateToken(userId: string): string {
-    return sign({ userId }, JWT_SECRET, {
-      expiresIn: '1h',
-      algorithm: 'HS256'
-    });
+  static generateTokens(userId: string): { accessToken: string; refreshToken: string } {
+    const accessToken = sign(
+      { userId, type: 'access' },
+      JWT_SECRET,
+      {
+        expiresIn: TOKEN_EXPIRY,
+        algorithm: 'HS512',
+        jwtid: randomBytes(16).toString('hex')
+      }
+    );
+
+    const refreshToken = sign(
+      { userId, type: 'refresh' },
+      JWT_SECRET,
+      {
+        expiresIn: REFRESH_TOKEN_EXPIRY,
+        algorithm: 'HS512',
+        jwtid: randomBytes(16).toString('hex')
+      }
+    );
+
+    return { accessToken, refreshToken };
   }
 
-  static async verifyToken(token: string): Promise<any> {
+  static async verifyToken(token: string, type: 'access' | 'refresh'): Promise<any> {
     try {
       const verifyAsync = promisify(verify) as (token: string, secret: string) => Promise<any>;
-      return await verifyAsync(token, JWT_SECRET);
+      const decoded = await verifyAsync(token, JWT_SECRET);
+      
+      if (decoded.type !== type) {
+        throw new Error('Invalid token type');
+      }
+      
+      return decoded;
     } catch (error) {
       throw new Error('Invalid token');
     }
@@ -43,18 +73,31 @@ export class AuthSecurity {
   }
 
   static validatePasswordStrength(password: string): boolean {
-    const minLength = 8;
+    const minLength = 12;
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
     const hasNumbers = /\d/.test(password);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const hasNoSpaces = !/\s/.test(password);
+    const hasNoSequentialChars = !/(.)\1{2,}/.test(password);
 
     return (
       password.length >= minLength &&
       hasUpperCase &&
       hasLowerCase &&
       hasNumbers &&
-      hasSpecialChar
+      hasSpecialChar &&
+      hasNoSpaces &&
+      hasNoSequentialChars
     );
+  }
+
+  static async refreshAccessToken(refreshToken: string): Promise<string> {
+    try {
+      const decoded = await this.verifyToken(refreshToken, 'refresh');
+      return this.generateTokens(decoded.userId).accessToken;
+    } catch (error) {
+      throw new Error('Invalid refresh token');
+    }
   }
 } 
