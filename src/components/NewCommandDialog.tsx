@@ -140,7 +140,7 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
   const handleSubmit = () => {
     if (!isFormValid) return;
 
-    console.log('Current isPublished state:', isPublished);
+    // console.log('Current isPublished state:', isPublished);
 
     const command: Command = {
       id: initialData?.id || "",
@@ -155,20 +155,20 @@ const NewCommandDialog = ({ open, onOpenChange, onSubmit, initialData, type = "a
       isPublished
     };
 
-    console.log('Submitting command:', command);
+    // console.log('Submitting command:', command);
     onSubmit(command, type);
     onOpenChange(false);
   };
 
   // Add logging when isPublished changes
   useEffect(() => {
-    console.log('isPublished changed:', isPublished);
+    // console.log('isPublished changed:', isPublished);
   }, [isPublished]);
 
   // Add logging when initialData changes
   useEffect(() => {
     if (initialData) {
-      console.log('Initializing form with data:', initialData);
+      // console.log('Initializing form with data:', initialData);
       setIsPublished(initialData.isPublished || false);
     }
   }, [initialData]);

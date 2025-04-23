@@ -10,7 +10,7 @@ import { FaBookmark } from "react-icons/fa";
 import AuthRequiredDialog from "./AuthRequiredDialog";
 import { TranslationButton } from "./TranslationButton";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import CommandDetailsDialog from "./CommandDetailsDialog";
 
 // Make examples optional in the props to match how it's being used
@@ -29,6 +29,7 @@ interface CommandProps {
   showEditDelete?: boolean;
   isPublished?: boolean;
   user_id?: string;
+  onSave?: (commandId: string, isSaved: boolean) => void;
 }
 
 const CommandCard = ({ 
@@ -44,7 +45,8 @@ const CommandCard = ({
   isSample = false,
   showEditDelete = false,
   isPublished = false,
-  user_id
+  user_id,
+  onSave
 }: CommandProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -54,6 +56,7 @@ const CommandCard = ({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [localIsPublished, setLocalIsPublished] = useState(isPublished);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
   
   
@@ -115,7 +118,7 @@ const CommandCard = ({
     // Set up real-time subscription for bookmark changes
     if (id && id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
       const subscription = supabase
-        .channel('bookmark-changes')
+        .channel(`bookmark-changes-${id}`)
         .on(
           'postgres_changes',
           {
@@ -129,11 +132,15 @@ const CommandCard = ({
             const { data: sessionData } = await supabase.auth.getSession();
             if (!sessionData.session) return;
 
+            // Update state immediately based on the event type
             if (payload.eventType === 'INSERT' && payload.new.user_id === sessionData.session.user.id) {
               setIsSaved(true);
             } else if (payload.eventType === 'DELETE' && payload.old.user_id === sessionData.session.user.id) {
               setIsSaved(false);
             }
+
+            // Double-check the current state to ensure consistency
+            await checkBookmarkStatus();
           }
         )
         .subscribe();
@@ -206,7 +213,17 @@ const CommandCard = ({
 
       const userId = sessionData.session.user.id;
       
-      if (isSaved) {
+      // First check if the command is already saved
+      const { data: existingBookmark } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('command_id', id)
+        .eq('user_id', userId)
+        .single();
+
+      const isCurrentlySaved = !!existingBookmark;
+      
+      if (isCurrentlySaved) {
         // Remove bookmark
         const { error } = await supabase
           .from('bookmarks')
@@ -216,7 +233,14 @@ const CommandCard = ({
         
         if (error) throw error;
         
+        // Update UI state immediately
         setIsSaved(false);
+        
+        // Notify parent component about the change
+        if (onSave) {
+          onSave(id, false);
+        }
+        
         toast({
           title: "Bookmark Removed",
           description: "Command removed from your bookmarks",
@@ -238,7 +262,14 @@ const CommandCard = ({
             throw error;
           }
         } else {
+          // Update UI state immediately
           setIsSaved(true);
+          
+          // Notify parent component about the change
+          if (onSave) {
+            onSave(id, true);
+          }
+          
           toast({
             title: "Command Saved",
             description: "Added to your bookmarks",
@@ -291,7 +322,7 @@ const CommandCard = ({
         onClick={() => setShowDetailsDialog(true)}
         className="cursor-pointer"
       >
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden mb-4">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
               <div>
@@ -385,6 +416,7 @@ const CommandCard = ({
                   </motion.div>
                 )}
                 
+                
                 {showEditDelete && (
                   <>
                     <motion.div
@@ -412,7 +444,7 @@ const CommandCard = ({
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDelete?.();
+                          setShowDeleteDialog(true);
                         }}
                         className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                       >
@@ -454,6 +486,34 @@ const CommandCard = ({
         copiedExampleIndex={copiedExampleIndex}
         commandId={id}
       />
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Command</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this command? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                onDelete?.();
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

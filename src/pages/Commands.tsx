@@ -76,10 +76,12 @@ const Commands = () => {
             .select('*')
             .eq('user_id', currentUserId);
           
-          if (error) throw error;
+          if (error) {
+            console.error('Error fetching user commands:', error);
+            throw error;
+          }
           
           if (data) {
-            // Transform user's commands
             commands = data.map(cmd => ({
               id: cmd.id,
               name: cmd.name,
@@ -92,35 +94,20 @@ const Commands = () => {
             }));
           }
         } else {
-          // If not logged in, fetch all commands
-          const { data, error } = await supabase
-            .from('commands')
-            .select('*');
-          
-          if (error) throw error;
-          
-          if (data) {
-            // Transform all commands
-            commands = data.map(cmd => ({
-              id: cmd.id,
-              name: cmd.name,
-              description: cmd.description,
-              syntax: cmd.syntax,
-              platform: cmd.platform as "linux" | "windows" | "both",
-              examples: cmd.examples || [],
-              user_id: cmd.user_id,
-              created_at: cmd.created_at
-            }));
-          }
+          // If not logged in, use sample commands
+          commands = sampleCommands;
         }
         
         setAllCommands(commands);
         setFilteredCommands(commands);
       } catch (error) {
         console.error("Error fetching commands:", error);
+        // If error occurs while fetching user commands, fallback to sample commands
+        setAllCommands(sampleCommands);
+        setFilteredCommands(sampleCommands);
         toast({
           title: "Error",
-          description: "Failed to load commands",
+          description: "Failed to load your commands. Showing sample commands instead.",
           variant: "destructive",
         });
       } finally {
@@ -137,40 +124,49 @@ const Commands = () => {
       if (!isLoggedIn || !currentUserId) return;
 
       try {
-        // First get the bookmarked command IDs
+        // Get both bookmarks and commands in a single query
         const { data: bookmarks, error: bookmarksError } = await supabase
           .from('bookmarks')
-          .select('command_id')
+          .select(`
+            command_id,
+            commands (
+              id,
+              name,
+              description,
+              syntax,
+              platform,
+              examples,
+              user_id,
+              created_at
+            )
+          `)
           .eq('user_id', currentUserId);
 
         if (bookmarksError) throw bookmarksError;
 
         if (!bookmarks || bookmarks.length === 0) {
           setSavedCommands([]);
+          if (showSavedCommands) {
+            setFilteredCommands([]);
+          }
           return;
         }
 
-        // Then get the actual commands
-        const commandIds = bookmarks.map(b => b.command_id);
-        const { data: commands, error: commandsError } = await supabase
-          .from('commands')
-          .select('*')
-          .in('id', commandIds);
+        // Transform the data
+        const transformedCommands: Command[] = bookmarks.map(b => ({
+          id: b.commands.id,
+          name: b.commands.name,
+          description: b.commands.description,
+          syntax: b.commands.syntax,
+          platform: b.commands.platform as "linux" | "windows" | "both",
+          examples: b.commands.examples || [],
+          user_id: b.commands.user_id,
+          created_at: b.commands.created_at
+        }));
 
-        if (commandsError) throw commandsError;
-
-        if (commands) {
-          const transformedCommands: Command[] = commands.map(cmd => ({
-            id: cmd.id,
-            name: cmd.name,
-            description: cmd.description,
-            syntax: cmd.syntax,
-            platform: cmd.platform as "linux" | "windows" | "both",
-            examples: cmd.examples || [],
-            user_id: cmd.user_id,
-            created_at: cmd.created_at
-          }));
-          setSavedCommands(transformedCommands);
+        setSavedCommands(transformedCommands);
+        if (showSavedCommands) {
+          setFilteredCommands(transformedCommands);
         }
       } catch (error) {
         console.error("Error fetching saved commands:", error);
@@ -183,7 +179,69 @@ const Commands = () => {
     };
 
     fetchSavedCommands();
-  }, [isLoggedIn, currentUserId, toast]);
+
+    // Set up real-time subscription for bookmark changes
+    if (isLoggedIn && currentUserId) {
+      const subscription = supabase
+        .channel(`bookmarks-changes-${currentUserId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'bookmarks',
+            filter: `user_id=eq.${currentUserId}`
+          },
+          async (payload) => {
+            if (payload.eventType === 'INSERT') {
+              // Get the newly bookmarked command
+              const { data: command, error } = await supabase
+                .from('commands')
+                .select('*')
+                .eq('id', payload.new.command_id)
+                .single();
+
+              if (error) {
+                console.error('Error fetching new bookmark:', error);
+                return;
+              }
+
+              if (command) {
+                const newCommand = {
+                  id: command.id,
+                  name: command.name,
+                  description: command.description,
+                  syntax: command.syntax,
+                  platform: command.platform as "linux" | "windows" | "both",
+                  examples: command.examples || [],
+                  user_id: command.user_id,
+                  created_at: command.created_at
+                };
+
+                setSavedCommands(prev => [...prev, newCommand]);
+                if (showSavedCommands) {
+                  setFilteredCommands(prev => [...prev, newCommand]);
+                }
+              }
+            } else if (payload.eventType === 'DELETE') {
+              setSavedCommands(prev => 
+                prev.filter(cmd => cmd.id !== payload.old.command_id)
+              );
+              if (showSavedCommands) {
+                setFilteredCommands(prev => 
+                  prev.filter(cmd => cmd.id !== payload.old.command_id)
+                );
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [isLoggedIn, currentUserId, toast, showSavedCommands]);
 
   const handleSearch = (query: string) => {
     if (!query.trim()) {
@@ -401,7 +459,17 @@ const Commands = () => {
     }
 
     try {
-      if (isSaved) {
+      // First check if the command is already saved
+      const { data: existingBookmark } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('command_id', commandId)
+        .eq('user_id', currentUserId)
+        .single();
+
+      const isCurrentlySaved = !!existingBookmark;
+
+      if (isCurrentlySaved) {
         // Remove bookmark
         const { error } = await supabase
           .from('bookmarks')
@@ -411,15 +479,14 @@ const Commands = () => {
         
         if (error) throw error;
         
-        // Update saved commands list
+        // Update saved commands list immediately
         setSavedCommands(prev => prev.filter(cmd => cmd.id !== commandId));
         
-        // Only update filtered commands if we're in saved commands view
+        // Update filtered commands if we're in saved commands view
         if (showSavedCommands) {
           setFilteredCommands(prev => prev.filter(cmd => cmd.id !== commandId));
         }
         
-        setIsSaved(false);
         toast({
           title: "Bookmark Removed",
           description: "Command removed from your bookmarks",
@@ -436,7 +503,6 @@ const Commands = () => {
               title: "Already Saved",
               description: "This command is already in your bookmarks",
             });
-            setIsSaved(true);
           } else {
             throw error;
           }
@@ -462,8 +528,14 @@ const Commands = () => {
               created_at: commandData.created_at
             };
             
+            // Update saved commands list immediately
             setSavedCommands(prev => [...prev, newSavedCommand]);
-            setIsSaved(true);
+            
+            // If we're in saved commands view, update filtered commands too
+            if (showSavedCommands) {
+              setFilteredCommands(prev => [...prev, newSavedCommand]);
+            }
+            
             toast({
               title: "Command Saved",
               description: "Added to your bookmarks",
@@ -478,6 +550,25 @@ const Commands = () => {
         description: "Failed to save command",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleBookmarkChange = (commandId: string, isSaved: boolean) => {
+    if (isSaved) {
+      // Add to saved commands
+      const command = allCommands.find(cmd => cmd.id === commandId);
+      if (command) {
+        setSavedCommands(prev => [...prev, command]);
+        if (showSavedCommands) {
+          setFilteredCommands(prev => [...prev, command]);
+        }
+      }
+    } else {
+      // Remove from saved commands
+      setSavedCommands(prev => prev.filter(cmd => cmd.id !== commandId));
+      if (showSavedCommands) {
+        setFilteredCommands(prev => prev.filter(cmd => cmd.id !== commandId));
+      }
     }
   };
 
@@ -596,6 +687,12 @@ const Commands = () => {
                         onClick={() => {
                           setShowSavedCommands(!showSavedCommands);
                           setDisplayedCommands(4);
+                          // Immediately update filtered commands when switching views
+                          if (!showSavedCommands) {
+                            setFilteredCommands(savedCommands);
+                          } else {
+                            setFilteredCommands(allCommands);
+                          }
                         }}
                       >
                         <BookmarkPlus className="h-4 w-4 mr-2" />
@@ -664,6 +761,7 @@ const Commands = () => {
                               onDelete={() => handleDeleteCommand(command.id)}
                               isPublished={command.isPublished}
                               user_id={command.user_id}
+                              onSave={handleBookmarkChange}
                             />
                           </motion.div>
                         ))}
