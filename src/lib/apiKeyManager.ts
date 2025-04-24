@@ -17,43 +17,31 @@ export async function setApiKey(apiKey: string): Promise<void> {
       throw new Error('Invalid API key format');
     }
 
-    // Send to server for secure storage
-    const response = await fetch('/api/secure/key', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': await getCsrfToken()
-      },
-      body: JSON.stringify({ apiKey }),
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to store API key');
-    }
+    // Store in localStorage
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
   } catch (error) {
     console.error('Error storing API key:', error);
     throw error;
   }
 }
 
-// Retrieve API key securely
+// Get API key from environment variables or localStorage
 export async function getApiKey(): Promise<string | null> {
   try {
-    const response = await fetch('/api/secure/key', {
-      method: 'GET',
-      headers: {
-        'X-CSRF-Token': await getCsrfToken()
-      },
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      return null;
+    // First try environment variable
+    const envApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY;
+    if (envApiKey) {
+      return envApiKey;
     }
 
-    const data = await response.json();
-    return data.apiKey;
+    // Then try localStorage
+    const storedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+    if (storedApiKey) {
+      return storedApiKey;
+    }
+
+    console.error('Google AI API key not found in environment variables or localStorage');
+    return null;
   } catch (error) {
     console.error('Error retrieving API key:', error);
     return null;
@@ -75,5 +63,5 @@ export function removeApiKey(): void {
 }
 
 export function hasApiKey(): boolean {
-  return !!getApiKey();
+  return !!import.meta.env.VITE_GOOGLE_AI_API_KEY || !!localStorage.getItem(API_KEY_STORAGE_KEY);
 } 

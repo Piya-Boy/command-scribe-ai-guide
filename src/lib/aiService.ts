@@ -36,7 +36,7 @@ export async function getAIResponseWithRetry(userMessage: string): Promise<GPTRe
 export async function getAIResponse(userMessage: string, options?: { signal?: AbortSignal }): Promise<GPTResponse> {
   try {
     // Get and validate the decrypted API key
-    const apiKey = getApiKey();
+    const apiKey = await getApiKey();
     
     if (!apiKey) {
       toast.error("Invalid API Key", {
